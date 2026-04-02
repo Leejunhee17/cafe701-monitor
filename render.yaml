@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cafe701-monitor
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class gevent --workers 1 --bind 0.0.0.0:$PORT server:app
+    envVars:
+      - key: OCR_API_KEY
+        value: helloworld
+      - key: POLL_INTERVAL
+        value: "8"

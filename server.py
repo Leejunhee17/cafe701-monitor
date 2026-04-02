@@ -1,4 +1,5 @@
 import io
+import os
 import time
 import queue
 import base64
@@ -11,8 +12,8 @@ app = Flask(__name__)
 
 CAFE_API_URL = "https://www.hanwha701.com/api/cafe701"
 OCR_API_URL = "https://api.ocr.space/parse/image"
-OCR_API_KEY = "helloworld"  # 무료 데모 키 (월 25,000회). 무료 계정은 https://ocr.space/ocrapi
-POLL_INTERVAL = 8  # seconds
+OCR_API_KEY = os.environ.get("OCR_API_KEY", "helloworld")  # 무료 계정: https://ocr.space/ocrapi
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "8"))  # seconds
 
 # Active monitors: { number_str: [queue, ...] }
 monitors: dict[str, list[queue.Queue]] = {}
@@ -153,9 +154,10 @@ if __name__ == "__main__":
     except Exception:
         local_ip = "127.0.0.1"
 
+    port = int(os.environ.get("PORT", 5001))
     print("=" * 50)
     print(f"  서버 시작!")
-    print(f"  아이폰에서 접속: http://{local_ip}:5001")
+    print(f"  아이폰에서 접속: http://{local_ip}:{port}")
     print(f"  (같은 와이파이에 연결되어 있어야 합니다)")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)
