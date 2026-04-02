@@ -56,20 +56,30 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
 
 def monitor_loop():
     """Background thread: polls cafe API and notifies watchers."""
+    print(f"[monitor] 스레드 시작 (간격: {POLL_INTERVAL}초)")
+    tick = 0
     while True:
+        tick += 1
         with monitors_lock:
             has_watchers = bool(monitors)
+            watcher_list = list(monitors.keys())
+
+        print(f"[monitor] tick={tick} watchers={watcher_list}")
 
         if has_watchers:
             try:
+                print(f"[monitor] 이미지 가져오는 중...")
                 img_bytes = fetch_image_bytes()
+                print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes), OCR 시작...")
                 numbers = extract_numbers(img_bytes)
-                print(f"[monitor] detected: {numbers}")
+                print(f"[monitor] OCR 결과: {numbers}")
 
                 with monitors_lock:
                     found_targets = []
                     for target, queues in monitors.items():
-                        msg = {"found": target in numbers, "numbers": numbers}
+                        found = target in numbers
+                        print(f"[monitor] target={target} found={found}")
+                        msg = {"found": found, "numbers": numbers}
                         dead = []
                         for q in queues:
                             try:
@@ -78,13 +88,18 @@ def monitor_loop():
                                 dead.append(q)
                         for q in dead:
                             queues.remove(q)
-                        if target in numbers:
+                        if found:
                             found_targets.append(target)
                     for t in found_targets:
                         del monitors[t]
+                        print(f"[monitor] {t}번 발견! 모니터 제거")
 
             except Exception as e:
-                print(f"[monitor] error: {e}")
+                import traceback
+                print(f"[monitor] 오류: {e}")
+                print(traceback.format_exc())
+        else:
+            print(f"[monitor] 대기자 없음, 스킵")
 
         time.sleep(POLL_INTERVAL)
 
