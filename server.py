@@ -164,10 +164,8 @@ def current():
         return jsonify({"error": str(e)}), 500
 
 
-# gunicorn 포함 모든 실행 방식에서 모니터 스레드 시작
-threading.Thread(target=monitor_loop, daemon=True).start()
-
 if __name__ == "__main__":
+    threading.Thread(target=monitor_loop, daemon=True).start()
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", 8080)))
