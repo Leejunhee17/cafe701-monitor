@@ -9,7 +9,7 @@ import base64
 sys.stdout.reconfigure(line_buffering=True)
 import threading
 import requests
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response, jsonify, stream_with_context
 from PIL import Image
 
 app = Flask(__name__)
@@ -145,9 +145,9 @@ def watch(number: str):
                         del monitors[number]
 
     return Response(
-        generate(),
+        stream_with_context(generate()),
         mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
 
 
