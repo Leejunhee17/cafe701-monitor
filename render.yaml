@@ -9,3 +9,5 @@ services:
         value: helloworld
       - key: POLL_INTERVAL
         value: "8"
+      - key: PYTHONUNBUFFERED
+        value: "1"
