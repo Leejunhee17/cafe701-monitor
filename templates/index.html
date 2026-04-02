@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Cafe 701 번호 알림</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1d1d1f;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #86868b;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin-bottom: 8px;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 16px;
+      font-size: 28px;
+      font-weight: 600;
+      text-align: center;
+      border: 2px solid #e5e5ea;
+      border-radius: 14px;
+      outline: none;
+      color: #1d1d1f;
+      letter-spacing: 4px;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    input[type="number"]:focus {
+      border-color: #007aff;
+    }
+    button {
+      width: 100%;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:active { transform: scale(0.98); }
+    #startBtn {
+      background: #007aff;
+      color: white;
+    }
+    #stopBtn {
+      background: #ff3b30;
+      color: white;
+      display: none;
+    }
+
+    .status-box {
+      margin-top: 28px;
+      padding: 20px;
+      border-radius: 14px;
+      background: #f5f5f7;
+      text-align: center;
+      display: none;
+    }
+    .status-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .status-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1d1d1f;
+    }
+    .status-sub {
+      font-size: 13px;
+      color: #86868b;
+      margin-top: 4px;
+    }
+    .current-numbers {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #86868b;
+    }
+    .current-numbers span {
+      display: inline-block;
+      background: #e5e5ea;
+      border-radius: 6px;
+      padding: 2px 8px;
+      margin: 2px;
+      font-weight: 500;
+    }
+
+    /* 완료 상태 */
+    .status-box.found {
+      background: #e8f5e9;
+      animation: pulse 0.5s ease;
+    }
+    .status-box.watching { background: #e3f2fd; }
+    .status-box.error { background: #fce4ec; }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    .interval-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5ea;
+    }
+    .interval-row label {
+      margin: 0;
+      font-size: 14px;
+      color: #86868b;
+    }
+    .interval-row span {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>☕ Cafe 701</h1>
+    <p class="subtitle">번호가 나오면 알려드릴게요</p>
+
+    <label>주문 번호</label>
+    <input type="number" id="numberInput" placeholder="예) 559" inputmode="numeric" pattern="[0-9]*">
+
+    <button id="startBtn" onclick="startWatching()">알림 시작</button>
+    <button id="stopBtn" onclick="stopWatching()">알림 중지</button>
+
+    <div class="status-box" id="statusBox">
+      <div class="status-icon" id="statusIcon">👀</div>
+      <div class="status-text" id="statusText">대기 중...</div>
+      <div class="status-sub" id="statusSub"></div>
+      <div class="current-numbers" id="currentNumbers"></div>
+    </div>
+
+    <div class="interval-row">
+      <label>자동 확인 주기</label>
+      <span>8초</span>
+    </div>
+  </div>
+
+  <audio id="alertSound" preload="auto">
+    <!-- 브라우저 내장 AudioContext로 소리 생성 -->
+  </audio>
+
+  <script>
+    let eventSource = null;
+
+    function playAlert() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const freqs = [880, 1100, 1320];
+        freqs.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+          gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + i * 0.15 + 0.05);
+          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + i * 0.15 + 0.3);
+          osc.start(ctx.currentTime + i * 0.15);
+          osc.stop(ctx.currentTime + i * 0.15 + 0.35);
+        });
+      } catch(e) { console.log('audio error', e); }
+    }
+
+    function vibrate() {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+    }
+
+    function showNotification(number) {
+      if (Notification.permission === 'granted') {
+        new Notification('☕ 커피 준비 완료!', {
+          body: `${number}번 주문이 나왔습니다!`,
+          icon: '/static/icon.png'
+        });
+      }
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    function setStatus(state, icon, text, sub, numbers) {
+      const box = document.getElementById('statusBox');
+      box.style.display = 'block';
+      box.className = 'status-box ' + state;
+      document.getElementById('statusIcon').textContent = icon;
+      document.getElementById('statusText').textContent = text;
+      document.getElementById('statusSub').textContent = sub || '';
+      const numEl = document.getElementById('currentNumbers');
+      if (numbers && numbers.length > 0) {
+        numEl.innerHTML = '현재 화면: ' + numbers.map(n => `<span>${n}</span>`).join('');
+      } else {
+        numEl.innerHTML = '';
+      }
+    }
+
+    function startWatching() {
+      const input = document.getElementById('numberInput');
+      const number = input.value.trim();
+      if (!number) {
+        input.focus();
+        input.style.borderColor = '#ff3b30';
+        setTimeout(() => input.style.borderColor = '#e5e5ea', 1500);
+        return;
+      }
+
+      requestNotificationPermission();
+      stopWatching();
+
+      document.getElementById('startBtn').style.display = 'none';
+      document.getElementById('stopBtn').style.display = 'block';
+      input.disabled = true;
+
+      setStatus('watching', '👀', `${number}번 대기 중...`, '화면을 확인하고 있어요');
+
+      eventSource = new EventSource(`/api/watch/${number}`);
+
+      eventSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        if (data.ping) return;
+
+        if (data.found) {
+          setStatus('found', '🎉', `${number}번 나왔어요!`, '지금 바로 받으러 가세요!', data.numbers);
+          playAlert();
+          vibrate();
+          showNotification(number);
+          stopWatching(false);
+        } else if (data.numbers) {
+          const now = new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+          setStatus('watching', '👀', `${number}번 대기 중...`, `마지막 확인: ${now}`, data.numbers);
+        }
+      };
+
+      eventSource.onerror = function() {
+        setStatus('error', '⚠️', '연결 오류', '서버를 확인해주세요');
+        stopWatching(false);
+      };
+    }
+
+    function stopWatching(resetUI = true) {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (resetUI) {
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('numberInput').disabled = false;
+        document.getElementById('statusBox').style.display = 'none';
+      } else {
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('numberInput').disabled = false;
+      }
+    }
+
+    // Enter key support
+    document.getElementById('numberInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startWatching();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+import io
+import time
+import queue
+import base64
+import threading
+import requests
+from flask import Flask, render_template, Response, jsonify
+from PIL import Image
+
+app = Flask(__name__)
+
+CAFE_API_URL = "https://www.hanwha701.com/api/cafe701"
+OCR_API_URL = "https://api.ocr.space/parse/image"
+OCR_API_KEY = "helloworld"  # 무료 데모 키 (월 25,000회). 무료 계정은 https://ocr.space/ocrapi
+POLL_INTERVAL = 8  # seconds
+
+# Active monitors: { number_str: [queue, ...] }
+monitors: dict[str, list[queue.Queue]] = {}
+monitors_lock = threading.Lock()
+
+
+def fetch_image_bytes() -> bytes:
+    resp = requests.post(CAFE_API_URL, data="test", timeout=10)
+    resp.raise_for_status()
+    return resp.content
+
+
+def extract_numbers(img_bytes: bytes) -> list[str]:
+    """Crop display area and OCR via ocr.space API."""
+    img = Image.open(io.BytesIO(img_bytes))
+    w, h = img.size
+
+    # Crop to the display screen area (center of the camera image)
+    left, top, right, bottom = int(w * 0.28), int(h * 0.12), int(w * 0.75), int(h * 0.60)
+    cropped = img.crop((left, top, right, bottom))
+
+    buf = io.BytesIO()
+    cropped.save(buf, format="JPEG", quality=90)
+    img_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    resp = requests.post(OCR_API_URL, data={
+        "apikey": OCR_API_KEY,
+        "base64Image": "data:image/jpeg;base64," + img_b64,
+        "language": "eng",
+        "scale": True,
+        "OCREngine": 2,
+    }, timeout=15)
+
+    result = resp.json()
+    parsed = result.get("ParsedResults", [{}])[0].get("ParsedText", "")
+    # 1~4자리 숫자 (너무 긴 노이즈 제거)
+    numbers = [t.strip() for t in parsed.split() if t.strip().isdigit() and 1 <= len(t.strip()) <= 4]
+    return numbers
+
+
+def monitor_loop():
+    """Background thread: polls cafe API and notifies watchers."""
+    while True:
+        with monitors_lock:
+            has_watchers = bool(monitors)
+
+        if has_watchers:
+            try:
+                img_bytes = fetch_image_bytes()
+                numbers = extract_numbers(img_bytes)
+                print(f"[monitor] detected: {numbers}")
+
+                with monitors_lock:
+                    found_targets = []
+                    for target, queues in monitors.items():
+                        msg = {"found": target in numbers, "numbers": numbers}
+                        dead = []
+                        for q in queues:
+                            try:
+                                q.put_nowait(msg)
+                            except queue.Full:
+                                dead.append(q)
+                        for q in dead:
+                            queues.remove(q)
+                        if target in numbers:
+                            found_targets.append(target)
+                    for t in found_targets:
+                        del monitors[t]
+
+            except Exception as e:
+                print(f"[monitor] error: {e}")
+
+        time.sleep(POLL_INTERVAL)
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/watch/<number>")
+def watch(number: str):
+    """SSE endpoint: streams status updates for the given number."""
+    number = number.strip()
+    q: queue.Queue = queue.Queue(maxsize=50)
+
+    with monitors_lock:
+        monitors.setdefault(number, []).append(q)
+
+    def generate():
+        import json
+        try:
+            yield f"data: {json.dumps({'status': 'watching', 'number': number})}\n\n"
+            while True:
+                try:
+                    msg = q.get(timeout=30)
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    if msg.get("found"):
+                        break
+                except queue.Empty:
+                    yield 'data: {"ping": true}\n\n'
+        finally:
+            with monitors_lock:
+                if number in monitors:
+                    try:
+                        monitors[number].remove(q)
+                    except ValueError:
+                        pass
+                    if not monitors[number]:
+                        del monitors[number]
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.route("/api/current")
+def current():
+    """One-shot check: returns currently displayed numbers."""
+    try:
+        img_bytes = fetch_image_bytes()
+        numbers = extract_numbers(img_bytes)
+        return jsonify({"numbers": numbers})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    t = threading.Thread(target=monitor_loop, daemon=True)
+    t.start()
+
+    import socket
+    hostname = socket.gethostname()
+    try:
+        local_ip = socket.gethostbyname(hostname)
+    except Exception:
+        local_ip = "127.0.0.1"
+
+    print("=" * 50)
+    print(f"  서버 시작!")
+    print(f"  아이폰에서 접속: http://{local_ip}:5001")
+    print(f"  (같은 와이파이에 연결되어 있어야 합니다)")
+    print("=" * 50)
+    app.run(host="0.0.0.0", port=5001, debug=False)
