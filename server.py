@@ -144,6 +144,13 @@ def current():
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", 8080)))
+    parser.add_argument("--ssl-cert", default=os.environ.get("SSL_CERT"))
+    parser.add_argument("--ssl-key", default=os.environ.get("SSL_KEY"))
+    args = parser.parse_args()
+
     t = threading.Thread(target=monitor_loop, daemon=True)
     t.start()
 
@@ -154,10 +161,12 @@ if __name__ == "__main__":
     except Exception:
         local_ip = "127.0.0.1"
 
-    port = int(os.environ.get("PORT", 5001))
+    port = args.port
+    ssl_context = (args.ssl_cert, args.ssl_key) if args.ssl_cert and args.ssl_key else None
+    scheme = "https" if ssl_context else "http"
     print("=" * 50)
     print(f"  서버 시작!")
-    print(f"  아이폰에서 접속: http://{local_ip}:{port}")
+    print(f"  아이폰에서 접속: {scheme}://{local_ip}:{port}")
     print(f"  (같은 와이파이에 연결되어 있어야 합니다)")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, ssl_context=ssl_context)
