@@ -143,6 +143,9 @@ def current():
         return jsonify({"error": str(e)}), 500
 
 
+# gunicorn 포함 모든 실행 방식에서 모니터 스레드 시작
+threading.Thread(target=monitor_loop, daemon=True).start()
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -150,9 +153,6 @@ if __name__ == "__main__":
     parser.add_argument("--ssl-cert", default=os.environ.get("SSL_CERT"))
     parser.add_argument("--ssl-key", default=os.environ.get("SSL_KEY"))
     args = parser.parse_args()
-
-    t = threading.Thread(target=monitor_loop, daemon=True)
-    t.start()
 
     import socket
     hostname = socket.gethostname()
