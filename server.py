@@ -1,8 +1,12 @@
+import sys
 import io
 import os
 import time
 import queue
 import base64
+
+# 로그 즉시 출력 (버퍼링 비활성화)
+sys.stdout.reconfigure(line_buffering=True)
 import threading
 import requests
 from flask import Flask, render_template, Response, jsonify

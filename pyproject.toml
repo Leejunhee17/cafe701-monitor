@@ -7,5 +7,4 @@ dependencies = [
     "pillow",
     "requests",
     "gunicorn",
-    "gevent",
 ]
