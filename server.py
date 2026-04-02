@@ -124,17 +124,19 @@ def watch(number: str):
 
     def generate():
         import json
+        print(f"[sse] {number}번 연결됨", flush=True)
         try:
             yield f"data: {json.dumps({'status': 'watching', 'number': number})}\n\n"
             while True:
                 try:
-                    msg = q.get(timeout=30)
+                    msg = q.get(timeout=3)
                     yield f"data: {json.dumps(msg)}\n\n"
                     if msg.get("found"):
                         break
                 except queue.Empty:
                     yield 'data: {"ping": true}\n\n'
         finally:
+            print(f"[sse] {number}번 연결 종료", flush=True)
             with monitors_lock:
                 if number in monitors:
                     try:
