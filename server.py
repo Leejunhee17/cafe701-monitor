@@ -35,8 +35,8 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
     img = Image.open(io.BytesIO(img_bytes))
     w, h = img.size
 
-    # Crop to the display screen area (center of the camera image)
-    left, top, right, bottom = int(w * 0.28), int(h * 0.12), int(w * 0.75), int(h * 0.60)
+    # Crop to the order number panel only (excludes right info panel with time display)
+    left, top, right, bottom = int(w * 0.28), int(h * 0.10), int(w * 0.57), int(h * 0.68)
     cropped = img.crop((left, top, right, bottom))
 
     buf = io.BytesIO()

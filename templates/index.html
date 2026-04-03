@@ -152,6 +152,58 @@
       font-weight: 600;
       color: #1d1d1f;
     }
+
+    .live-board {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5ea;
+    }
+    .live-board-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .live-board-header label {
+      margin: 0;
+      font-size: 14px;
+      color: #86868b;
+    }
+    .refresh-btn {
+      width: auto;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #f5f5f7;
+      color: #007aff;
+      border: none;
+      border-radius: 8px;
+      margin-top: 0;
+    }
+    .live-numbers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 36px;
+      align-items: center;
+    }
+    .live-numbers span {
+      display: inline-block;
+      background: #e3f2fd;
+      color: #1565c0;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .live-numbers .placeholder {
+      font-size: 13px;
+      color: #86868b;
+      font-weight: 400;
+      background: none;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -175,6 +227,16 @@
     <div class="interval-row">
       <label>자동 확인 주기</label>
       <span>8초</span>
+    </div>
+
+    <div class="live-board">
+      <div class="live-board-header">
+        <label>현재 화면 번호</label>
+        <button class="refresh-btn" onclick="fetchCurrent()">새로고침</button>
+      </div>
+      <div class="live-numbers" id="liveNumbers">
+        <span class="placeholder">불러오는 중...</span>
+      </div>
     </div>
   </div>
 
@@ -267,6 +329,7 @@
 
         if (data.found) {
           setStatus('found', '🎉', `${number}번 나왔어요!`, '지금 바로 받으러 가세요!', data.numbers);
+          updateLiveNumbers(data.numbers);
           playAlert();
           vibrate();
           showNotification(number);
@@ -274,6 +337,7 @@
         } else if (data.numbers) {
           const now = new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
           setStatus('watching', '👀', `${number}번 대기 중...`, `마지막 확인: ${now}`, data.numbers);
+          updateLiveNumbers(data.numbers);
         }
       };
 
@@ -300,10 +364,31 @@
       }
     }
 
+    function updateLiveNumbers(numbers) {
+      const el = document.getElementById('liveNumbers');
+      if (numbers && numbers.length > 0) {
+        el.innerHTML = numbers.map(n => `<span>${n}</span>`).join('');
+      } else {
+        el.innerHTML = '<span class="placeholder">번호 없음</span>';
+      }
+    }
+
+    function fetchCurrent() {
+      const el = document.getElementById('liveNumbers');
+      el.innerHTML = '<span class="placeholder">불러오는 중...</span>';
+      fetch('/api/current')
+        .then(r => r.json())
+        .then(data => updateLiveNumbers(data.numbers))
+        .catch(() => { el.innerHTML = '<span class="placeholder">오류</span>'; });
+    }
+
     // Enter key support
     document.getElementById('numberInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') startWatching();
     });
+
+    // 페이지 로드 시 현재 번호 조회
+    fetchCurrent();
   </script>
 </body>
 </html>
