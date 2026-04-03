@@ -645,6 +645,7 @@
 
       orderFound = false;
       watchingNumber = number;
+      localStorage.setItem('cafe701_watching', number);
       document.getElementById('startBtn').style.display = 'none';
       document.getElementById('stopBtn').style.display = 'block';
       input.disabled = true;
@@ -663,6 +664,7 @@
         if (data.ping) return;
         if (data.found) {
           orderFound = true;
+          localStorage.removeItem('cafe701_watching');
           setStatus('found', '🎉', `${number}번 나왔어요!`, '지금 바로 받으러 가세요!', data.numbers);
           updateLiveNumbers(data.numbers);
           playAlert();
@@ -738,6 +740,23 @@
     document.getElementById('numberInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') startWatching();
     });
+
+    // iOS 백그라운드 복귀 시 즉시 재연결
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && watchingNumber && !orderFound) {
+        clearInterval(reconnectTimer);
+        if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+          setStatus('watching', '👀', `${watchingNumber}번 대기 중...`, '재연결 중...');
+          connectSSE(watchingNumber);
+        }
+      }
+    });
+
+    // localStorage에서 대기 중인 번호 복원 (페이지 새로고침 대비)
+    const savedNumber = localStorage.getItem('cafe701_watching');
+    if (savedNumber) {
+      document.getElementById('numberInput').value = savedNumber;
+    }
 
     // 페이지 로드 시 현재 번호 조회
     fetchCurrent();

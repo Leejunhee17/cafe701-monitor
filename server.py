@@ -23,6 +23,21 @@ POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "8"))  # seconds
 monitors: dict[str, list[queue.Queue]] = {}
 monitors_lock = threading.Lock()
 
+# OCR 캐시: 직전 이미지와 동일하면 API 호출 생략
+_ocr_cache: dict = {"phash": None, "numbers": []}
+
+
+def _phash(img: Image.Image, size: int = 16) -> bytes:
+    """16×16 흑백 썸네일 기반 퍼셉추얼 해시."""
+    small = img.convert("L").resize((size, size), Image.LANCZOS)
+    avg = sum(small.getdata()) / (size * size)
+    return bytes(1 if p >= avg else 0 for p in small.getdata())
+
+
+def _phash_similar(h1: bytes, h2: bytes, threshold: int = 8) -> bool:
+    """해시 차이가 threshold 미만이면 동일 이미지로 간주."""
+    return sum(a != b for a, b in zip(h1, h2)) < threshold
+
 
 def fetch_image_bytes() -> bytes:
     resp = requests.post(CAFE_API_URL, data="test", timeout=10)
@@ -32,12 +47,19 @@ def fetch_image_bytes() -> bytes:
 
 def extract_numbers(img_bytes: bytes) -> list[str]:
     """Crop display area and OCR via ocr.space API."""
+    global _ocr_cache
     img = Image.open(io.BytesIO(img_bytes))
     w, h = img.size
 
     # Crop to the order number panel only (excludes right info panel with time display)
     left, top, right, bottom = int(w * 0.28), int(h * 0.10), int(w * 0.57), int(h * 0.68)
     cropped = img.crop((left, top, right, bottom))
+
+    # 직전 이미지와 동일하면 OCR API 호출 생략
+    current_hash = _phash(cropped)
+    if _ocr_cache["phash"] is not None and _phash_similar(current_hash, _ocr_cache["phash"]):
+        print(f"[ocr] 이미지 변화 없음, 캐시 반환: {_ocr_cache['numbers']}")
+        return _ocr_cache["numbers"]
 
     # OCR 속도 향상을 위해 최대 500px 너비로 리사이즈
     max_w = 500
@@ -59,10 +81,12 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
     result = resp.json()
     if not isinstance(result, dict):
         print(f"[ocr] 비정상 응답: {str(result)[:200]}")
-        return []
+        return _ocr_cache["numbers"]  # 오류 시 직전 결과 반환
     parsed = result.get("ParsedResults", [{}])[0].get("ParsedText", "")
     # 1~4자리 숫자 (너무 긴 노이즈 제거)
     numbers = [t.strip() for t in parsed.split() if t.strip().isdigit() and 1 <= len(t.strip()) <= 4]
+    _ocr_cache["phash"] = current_hash
+    _ocr_cache["numbers"] = numbers
     return numbers
 
 
