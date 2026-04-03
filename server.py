@@ -52,6 +52,9 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
     }, timeout=15)
 
     result = resp.json()
+    if not isinstance(result, dict):
+        print(f"[ocr] 비정상 응답: {str(result)[:200]}")
+        return []
     parsed = result.get("ParsedResults", [{}])[0].get("ParsedText", "")
     # 1~4자리 숫자 (너무 긴 노이즈 제거)
     numbers = [t.strip() for t in parsed.split() if t.strip().isdigit() and 1 <= len(t.strip()) <= 4]
