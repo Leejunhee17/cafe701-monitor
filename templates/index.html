@@ -631,6 +631,7 @@
     }
 
     function startWatching() {
+      if (!checkOperatingHours()) return;
       const input = document.getElementById('numberInput');
       const number = input.value.trim();
       if (!number) {
@@ -758,8 +759,30 @@
       document.getElementById('numberInput').value = savedNumber;
     }
 
+    // 운영시간 체크 (KST 기준 07:00~17:00)
+    function checkOperatingHours() {
+      const now = new Date();
+      // KST = UTC+9
+      const kstHour = (now.getUTCHours() + 9) % 24;
+      return kstHour >= 7 && kstHour < 17;
+    }
+
+    function applyOperatingHoursUI() {
+      if (!checkOperatingHours()) {
+        const now = new Date();
+        const kstHour = (now.getUTCHours() + 9) % 24;
+        const msg = kstHour < 7 ? `오전 7시에 오픈합니다` : `오늘 운영이 종료됐습니다 (17:00)`;
+        setStatus('error', '☕', '운영시간이 아닙니다', msg);
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('startBtn').style.opacity = '0.4';
+        document.getElementById('numberInput').disabled = true;
+        document.getElementById('statusBox').style.display = 'block';
+      }
+    }
+
     // 페이지 로드 시 현재 번호 조회
-    fetchCurrent();
+    applyOperatingHoursUI();
+    if (checkOperatingHours()) fetchCurrent();
   </script>
 </body>
 </html>

@@ -4,6 +4,8 @@ import os
 import time
 import queue
 import base64
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # 로그 즉시 출력 (버퍼링 비활성화)
 sys.stdout.reconfigure(line_buffering=True)
@@ -11,6 +13,15 @@ import threading
 import requests
 from flask import Flask, render_template, Response, jsonify, stream_with_context
 from PIL import Image
+
+KST = ZoneInfo("Asia/Seoul")
+OPEN_HOUR = int(os.environ.get("OPEN_HOUR", "7"))    # 07:00 KST
+CLOSE_HOUR = int(os.environ.get("CLOSE_HOUR", "17"))  # 17:00 KST
+
+
+def is_operating_hours() -> bool:
+    hour = datetime.now(KST).hour
+    return OPEN_HOUR <= hour < CLOSE_HOUR
 
 app = Flask(__name__)
 
@@ -102,6 +113,11 @@ def monitor_loop():
 
         print(f"[monitor] tick={tick} watchers={watcher_list}")
 
+        if not is_operating_hours():
+            print(f"[monitor] 운영시간 외 ({datetime.now(KST).strftime('%H:%M')} KST), 스킵")
+            time.sleep(POLL_INTERVAL)
+            continue
+
         if has_watchers:
             try:
                 print(f"[monitor] 이미지 가져오는 중...")
@@ -188,6 +204,8 @@ def watch(number: str):
 @app.route("/api/current")
 def current():
     """One-shot check: returns currently displayed numbers."""
+    if not is_operating_hours():
+        return jsonify({"closed": True, "open_hour": OPEN_HOUR, "close_hour": CLOSE_HOUR})
     try:
         img_bytes = fetch_image_bytes()
         numbers = extract_numbers(img_bytes)
