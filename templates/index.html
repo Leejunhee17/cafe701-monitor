@@ -4,245 +4,571 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Cafe 701 번호 알림</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --espresso:   #2C1A0E;
+      --roast:      #4A2C17;
+      --caramel:    #C8843A;
+      --amber:      #E8A84C;
+      --cream:      #FAF6EF;
+      --latte:      #F0E6D3;
+      --milk:       #FDFAF5;
+      --chalk:      #EDE8E0;
+      --sage:       #6B8F71;
+      --error:      #B84A3C;
+      --text-main:  #2C1A0E;
+      --text-muted: #8A7060;
+      --radius-lg:  18px;
+      --radius-md:  12px;
+      --radius-sm:  8px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f5f7;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      padding: 0;
+      overflow-x: hidden;
     }
-    .card {
-      background: white;
-      border-radius: 20px;
-      padding: 32px 24px;
+
+    /* ── Header bar ── */
+    .header {
       width: 100%;
-      max-width: 380px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      background: var(--espresso);
+      padding: 20px 24px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
     }
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #1d1d1f;
-      text-align: center;
-      margin-bottom: 6px;
-    }
-    .subtitle {
-      font-size: 14px;
-      color: #86868b;
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    label {
-      display: block;
-      font-size: 13px;
+
+    .brand-tag {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
       font-weight: 600;
-      color: #1d1d1f;
-      margin-bottom: 8px;
-    }
-    input[type="number"] {
-      width: 100%;
-      padding: 16px;
-      font-size: 28px;
-      font-weight: 600;
-      text-align: center;
-      border: 2px solid #e5e5ea;
-      border-radius: 14px;
-      outline: none;
-      color: #1d1d1f;
       letter-spacing: 4px;
-      transition: border-color 0.2s;
-      -webkit-appearance: none;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 4px;
     }
-    input[type="number"]:focus {
-      border-color: #007aff;
+
+    .brand-name {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+      font-size: 38px;
+      font-weight: 900;
+      color: var(--milk);
+      line-height: 1;
+      letter-spacing: -1px;
     }
-    button {
+
+    .brand-name em {
+      font-style: italic;
+      color: var(--amber);
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--caramel);
+      margin-top: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Live board (top display) ── */
+    .display-board {
       width: 100%;
-      padding: 16px;
-      font-size: 17px;
+      background: var(--roast);
+      padding: 16px 20px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .display-board::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--caramel), transparent);
+      opacity: 0.4;
+    }
+
+    .board-label {
+      font-size: 10px;
       font-weight: 600;
-      border: none;
-      border-radius: 14px;
-      cursor: pointer;
-      margin-top: 16px;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-    button:active { transform: scale(0.98); }
-    #startBtn {
-      background: #007aff;
-      color: white;
-    }
-    #stopBtn {
-      background: #ff3b30;
-      color: white;
-      display: none;
-    }
-
-    .status-box {
-      margin-top: 28px;
-      padding: 20px;
-      border-radius: 14px;
-      background: #f5f5f7;
-      text-align: center;
-      display: none;
-    }
-    .status-icon {
-      font-size: 40px;
-      margin-bottom: 8px;
-    }
-    .status-text {
-      font-size: 15px;
-      font-weight: 500;
-      color: #1d1d1f;
-    }
-    .status-sub {
-      font-size: 13px;
-      color: #86868b;
-      margin-top: 4px;
-    }
-    .current-numbers {
-      margin-top: 8px;
-      font-size: 13px;
-      color: #86868b;
-    }
-    .current-numbers span {
-      display: inline-block;
-      background: #e5e5ea;
-      border-radius: 6px;
-      padding: 2px 8px;
-      margin: 2px;
-      font-weight: 500;
-    }
-
-    /* 완료 상태 */
-    .status-box.found {
-      background: #e8f5e9;
-      animation: pulse 0.5s ease;
-    }
-    .status-box.watching { background: #e3f2fd; }
-    .status-box.error { background: #fce4ec; }
-
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.04); }
-      100% { transform: scale(1); }
-    }
-
-    .interval-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e5ea;
-    }
-    .interval-row label {
-      margin: 0;
-      font-size: 14px;
-      color: #86868b;
-    }
-    .interval-row span {
-      font-size: 14px;
-      font-weight: 600;
-      color: #1d1d1f;
-    }
-
-    .live-board {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e5ea;
-    }
-    .live-board-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--caramel);
       margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .live-board-header label {
-      margin: 0;
-      font-size: 14px;
-      color: #86868b;
+
+    .board-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--caramel);
+      opacity: 0.2;
     }
-    .refresh-btn {
-      width: auto;
-      padding: 4px 12px;
-      font-size: 13px;
-      font-weight: 500;
-      background: #f5f5f7;
-      color: #007aff;
-      border: none;
-      border-radius: 8px;
-      margin-top: 0;
+
+    .board-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
+
     .live-numbers {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      min-height: 36px;
+      flex: 1;
+      min-height: 44px;
       align-items: center;
     }
+
     .live-numbers span {
-      display: inline-block;
-      background: #e3f2fd;
-      color: #1565c0;
-      border-radius: 8px;
-      padding: 6px 14px;
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: 28px;
+      color: var(--amber);
+      line-height: 1;
+      letter-spacing: -0.5px;
+      transition: transform 0.15s ease, color 0.2s ease;
+    }
+
+    .live-numbers span.highlight {
+      color: #fff;
+      animation: numPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .live-numbers .placeholder {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--caramel);
+      font-weight: 400;
+      opacity: 0.6;
+    }
+
+    .refresh-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid rgba(200, 132, 58, 0.3);
+      border-radius: var(--radius-sm);
+      color: var(--caramel);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      width: auto;
+      margin-top: 0;
+    }
+
+    .refresh-btn:active {
+      background: rgba(200, 132, 58, 0.15);
+      transform: scale(0.96);
+    }
+
+    /* ── Main content area ── */
+    .content {
+      width: 100%;
+      max-width: 420px;
+      padding: 28px 20px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ── Input section ── */
+    .input-section {
+      background: var(--milk);
+      border-radius: var(--radius-lg);
+      padding: 24px 20px 20px;
+      box-shadow: 0 2px 12px rgba(44, 26, 14, 0.07), 0 1px 3px rgba(44, 26, 14, 0.04);
+    }
+
+    .input-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 16px 18px;
+      font-family: 'Fraunces', serif;
+      font-size: 36px;
+      font-weight: 700;
+      text-align: center;
+      border: 2px solid var(--latte);
+      border-radius: var(--radius-md);
+      outline: none;
+      color: var(--espresso);
+      letter-spacing: 6px;
+      background: var(--cream);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--caramel);
+      box-shadow: 0 0 0 4px rgba(200, 132, 58, 0.12);
+    }
+
+    input[type="number"].shake {
+      animation: shake 0.4s ease;
+      border-color: var(--error);
+    }
+
+    input[type="number"]:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* hide spinner */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    /* ── Buttons ── */
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      flex: 1;
+      padding: 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: transform 0.12s, opacity 0.15s, box-shadow 0.15s;
+      width: auto;
+      margin-top: 0;
+    }
+
+    button:active { transform: scale(0.97); }
+
+    #startBtn {
+      background: var(--espresso);
+      color: var(--amber);
+      box-shadow: 0 4px 14px rgba(44, 26, 14, 0.25);
+    }
+
+    #startBtn:hover {
+      box-shadow: 0 6px 20px rgba(44, 26, 14, 0.32);
+    }
+
+    #stopBtn {
+      background: var(--latte);
+      color: var(--error);
+      display: none;
+      box-shadow: none;
+    }
+
+    /* ── Status box ── */
+    .status-box {
+      margin-top: 16px;
+      border-radius: var(--radius-lg);
+      padding: 22px 20px;
+      text-align: center;
+      display: none;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+
+    /* watching */
+    .status-box.watching {
+      background: var(--latte);
+      border: 1.5px solid rgba(200, 132, 58, 0.2);
+    }
+
+    /* error */
+    .status-box.error {
+      background: #FBF0EF;
+      border: 1.5px solid rgba(184, 74, 60, 0.2);
+    }
+
+    /* found */
+    .status-box.found {
+      background: var(--espresso);
+      border: none;
+      animation: foundBurst 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .status-box.found::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 60%, rgba(232, 168, 76, 0.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .status-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      display: block;
+      line-height: 1;
+    }
+
+    .status-box.watching .status-icon {
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    .status-box.found .status-icon {
+      animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      font-size: 48px;
+    }
+
+    .status-text {
+      font-family: 'Fraunces', serif;
       font-size: 20px;
       font-weight: 700;
-      letter-spacing: 1px;
+      color: var(--espresso);
+      line-height: 1.2;
     }
-    .live-numbers .placeholder {
+
+    .status-box.found .status-text {
+      color: var(--amber);
+      font-size: 24px;
+    }
+
+    .status-sub {
       font-size: 13px;
-      color: #86868b;
+      color: var(--text-muted);
+      margin-top: 5px;
       font-weight: 400;
-      background: none;
-      padding: 0;
+    }
+
+    .status-box.found .status-sub {
+      color: rgba(250, 246, 239, 0.7);
+    }
+
+    .status-box.error .status-text { color: var(--error); }
+    .status-box.error .status-sub { color: var(--error); opacity: 0.7; }
+
+    /* Watching pulse ring */
+    .pulse-ring {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(200, 132, 58, 0.06);
+      animation: ringPulse 2s ease-out infinite;
+      pointer-events: none;
+    }
+
+    .status-box.watching .pulse-ring { display: block; }
+
+    /* Current numbers in status */
+    #currentNumbers {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    #currentNumbers span {
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: 15px;
+      background: rgba(44, 26, 14, 0.07);
+      color: var(--espresso);
+      border-radius: var(--radius-sm);
+      padding: 4px 10px;
+    }
+
+    .status-box.found #currentNumbers span {
+      background: rgba(232, 168, 76, 0.18);
+      color: var(--amber);
+    }
+
+    /* Loading dot indicator */
+    .watching-dots {
+      display: none;
+      gap: 5px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+
+    .status-box.watching .watching-dots { display: flex; }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--caramel);
+      opacity: 0.35;
+      animation: dotPulse 1.4s ease-in-out infinite;
+    }
+
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    /* ── Interval badge ── */
+    .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 18px;
+      padding: 10px 16px;
+      background: var(--chalk);
+      border-radius: 100px;
+      align-self: center;
+    }
+
+    .meta-row .meta-icon {
+      font-size: 13px;
+      opacity: 0.6;
+    }
+
+    .meta-row span {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .meta-row strong {
+      font-size: 12px;
+      color: var(--espresso);
+      font-weight: 600;
+    }
+
+    /* ── Animations ── */
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.08); opacity: 0.8; }
+    }
+
+    @keyframes celebrate {
+      0%   { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+      60%  { transform: scale(1.15) rotate(5deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    @keyframes foundBurst {
+      0%   { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes ringPulse {
+      0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
+      100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+    }
+
+    @keyframes numPop {
+      0%   { transform: scale(0.8); opacity: 0.5; }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.9); }
+      50%       { opacity: 0.9; transform: scale(1.1); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-6px); }
+      40%       { transform: translateX(6px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>☕ Cafe 701</h1>
-    <p class="subtitle">번호가 나오면 알려드릴게요</p>
 
-    <label>주문 번호</label>
-    <input type="number" id="numberInput" placeholder="예) 559" inputmode="numeric" pattern="[0-9]*">
+  <!-- Header -->
+  <div class="header">
+    <div class="brand-tag">Order Tracker</div>
+    <div class="brand-name">Cafe <em>701</em></div>
+    <div class="brand-sub">번호가 나오면 바로 알려드릴게요</div>
+  </div>
 
-    <button id="startBtn" onclick="startWatching()">알림 시작</button>
-    <button id="stopBtn" onclick="stopWatching()">알림 중지</button>
-
-    <div class="status-box" id="statusBox">
-      <div class="status-icon" id="statusIcon">👀</div>
-      <div class="status-text" id="statusText">대기 중...</div>
-      <div class="status-sub" id="statusSub"></div>
-      <div class="current-numbers" id="currentNumbers"></div>
-    </div>
-
-    <div class="interval-row">
-      <label>자동 확인 주기</label>
-      <span>8초</span>
-    </div>
-
-    <div class="live-board">
-      <div class="live-board-header">
-        <label>현재 화면 번호</label>
-        <button class="refresh-btn" onclick="fetchCurrent()">새로고침</button>
-      </div>
+  <!-- Live display board -->
+  <div class="display-board">
+    <div class="board-label">지금 화면 번호</div>
+    <div class="board-row">
       <div class="live-numbers" id="liveNumbers">
         <span class="placeholder">불러오는 중...</span>
       </div>
+      <button class="refresh-btn" onclick="fetchCurrent()">새로고침</button>
     </div>
   </div>
 
-  <audio id="alertSound" preload="auto">
-    <!-- 브라우저 내장 AudioContext로 소리 생성 -->
-  </audio>
+  <!-- Main content -->
+  <div class="content">
+
+    <!-- Input + buttons -->
+    <div class="input-section">
+      <label class="input-label">주문 번호</label>
+      <input
+        type="number"
+        id="numberInput"
+        placeholder="559"
+        inputmode="numeric"
+        pattern="[0-9]*"
+      >
+      <div class="btn-group">
+        <button id="startBtn" onclick="startWatching()">알림 시작</button>
+        <button id="stopBtn" onclick="stopWatching()">중지</button>
+      </div>
+    </div>
+
+    <!-- Status box -->
+    <div class="status-box" id="statusBox">
+      <div class="pulse-ring"></div>
+      <div class="status-icon" id="statusIcon">👀</div>
+      <div class="status-text" id="statusText">대기 중...</div>
+      <div class="status-sub" id="statusSub"></div>
+      <div id="currentNumbers"></div>
+      <div class="watching-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <!-- Interval badge -->
+    <div class="meta-row" style="display:flex;">
+      <span class="meta-icon">⏱</span>
+      <span>자동 확인 주기</span>
+      <strong>8초</strong>
+    </div>
+
+  </div>
+
+  <audio id="alertSound" preload="auto"></audio>
 
   <script>
     let eventSource = null;
@@ -298,7 +624,7 @@
       document.getElementById('statusSub').textContent = sub || '';
       const numEl = document.getElementById('currentNumbers');
       if (numbers && numbers.length > 0) {
-        numEl.innerHTML = '현재 화면: ' + numbers.map(n => `<span>${n}</span>`).join('');
+        numEl.innerHTML = numbers.map(n => `<span>${n}</span>`).join('');
       } else {
         numEl.innerHTML = '';
       }
@@ -309,8 +635,8 @@
       const number = input.value.trim();
       if (!number) {
         input.focus();
-        input.style.borderColor = '#ff3b30';
-        setTimeout(() => input.style.borderColor = '#e5e5ea', 1500);
+        input.classList.add('shake');
+        setTimeout(() => input.classList.remove('shake'), 500);
         return;
       }
 
@@ -351,9 +677,8 @@
       };
 
       eventSource.onerror = function() {
-        if (orderFound) return; // 이미 찾았으면 무시
+        if (orderFound) return;
         if (eventSource) { eventSource.close(); eventSource = null; }
-        // 5초 후 자동 재연결
         let countdown = 5;
         setStatus('error', '⚠️', '연결이 끊겼습니다', `${countdown}초 후 재연결...`);
         clearInterval(reconnectTimer);
@@ -389,6 +714,12 @@
       const el = document.getElementById('liveNumbers');
       if (numbers && numbers.length > 0) {
         el.innerHTML = numbers.map(n => `<span>${n}</span>`).join('');
+        // pop animation on each number
+        el.querySelectorAll('span').forEach((s, i) => {
+          s.style.animationDelay = `${i * 0.06}s`;
+          s.classList.add('highlight');
+          setTimeout(() => s.classList.remove('highlight'), 500 + i * 60);
+        });
       } else {
         el.innerHTML = '<span class="placeholder">번호 없음</span>';
       }
