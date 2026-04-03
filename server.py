@@ -39,8 +39,13 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
     left, top, right, bottom = int(w * 0.28), int(h * 0.10), int(w * 0.57), int(h * 0.68)
     cropped = img.crop((left, top, right, bottom))
 
+    # OCR 속도 향상을 위해 최대 500px 너비로 리사이즈
+    max_w = 500
+    ratio = max_w / cropped.width
+    cropped = cropped.resize((max_w, int(cropped.height * ratio)), Image.LANCZOS)
+
     buf = io.BytesIO()
-    cropped.save(buf, format="JPEG", quality=90)
+    cropped.save(buf, format="JPEG", quality=80)
     img_b64 = base64.b64encode(buf.getvalue()).decode()
 
     resp = requests.post(OCR_API_URL, data={
@@ -48,7 +53,7 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
         "base64Image": "data:image/jpeg;base64," + img_b64,
         "language": "eng",
         "scale": True,
-        "OCREngine": 2,
+        "OCREngine": 1,
     }, timeout=15)
 
     result = resp.json()

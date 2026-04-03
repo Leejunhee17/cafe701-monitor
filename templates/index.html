@@ -246,6 +246,9 @@
 
   <script>
     let eventSource = null;
+    let orderFound = false;
+    let watchingNumber = null;
+    let reconnectTimer = null;
 
     function playAlert() {
       try {
@@ -314,20 +317,26 @@
       requestNotificationPermission();
       stopWatching();
 
+      orderFound = false;
+      watchingNumber = number;
       document.getElementById('startBtn').style.display = 'none';
       document.getElementById('stopBtn').style.display = 'block';
       input.disabled = true;
 
       setStatus('watching', '👀', `${number}번 대기 중...`, '화면을 확인하고 있어요');
 
+      connectSSE(number);
+    }
+
+    function connectSSE(number) {
+      if (eventSource) { eventSource.close(); eventSource = null; }
       eventSource = new EventSource(`/api/watch/${number}`);
 
       eventSource.onmessage = function(e) {
         const data = JSON.parse(e.data);
-
         if (data.ping) return;
-
         if (data.found) {
+          orderFound = true;
           setStatus('found', '🎉', `${number}번 나왔어요!`, '지금 바로 받으러 가세요!', data.numbers);
           updateLiveNumbers(data.numbers);
           playAlert();
@@ -342,16 +351,28 @@
       };
 
       eventSource.onerror = function() {
-        setStatus('error', '⚠️', '연결 오류', '서버를 확인해주세요');
-        stopWatching(false);
+        if (orderFound) return; // 이미 찾았으면 무시
+        if (eventSource) { eventSource.close(); eventSource = null; }
+        // 5초 후 자동 재연결
+        let countdown = 5;
+        setStatus('error', '⚠️', '연결이 끊겼습니다', `${countdown}초 후 재연결...`);
+        clearInterval(reconnectTimer);
+        reconnectTimer = setInterval(() => {
+          countdown--;
+          if (countdown <= 0) {
+            clearInterval(reconnectTimer);
+            setStatus('watching', '👀', `${number}번 대기 중...`, '재연결 중...');
+            connectSSE(number);
+          } else {
+            document.getElementById('statusSub').textContent = `${countdown}초 후 재연결...`;
+          }
+        }, 1000);
       };
     }
 
     function stopWatching(resetUI = true) {
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
+      clearInterval(reconnectTimer);
+      if (eventSource) { eventSource.close(); eventSource = null; }
       if (resetUI) {
         document.getElementById('startBtn').style.display = 'block';
         document.getElementById('stopBtn').style.display = 'none';
