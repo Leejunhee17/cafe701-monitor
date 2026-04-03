@@ -130,22 +130,35 @@
     }
 
     .live-numbers {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 8px;
       flex: 1;
       min-height: 44px;
       align-items: center;
     }
 
+    /* 첫 번째 번호: 두 열 전체 차지, 중앙 정렬, 더 크게 */
+    .live-numbers .num-top {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-family: 'Fraunces', serif;
+      font-weight: 900;
+      font-size: 38px;
+      color: #fff;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+
     .live-numbers span {
       font-family: 'Fraunces', serif;
       font-weight: 700;
-      font-size: 28px;
+      font-size: 26px;
       color: var(--amber);
       line-height: 1;
       letter-spacing: -0.5px;
-      transition: transform 0.15s ease, color 0.2s ease;
+      text-align: center;
+      transition: color 0.2s ease;
     }
 
     .live-numbers span.highlight {
@@ -154,6 +167,7 @@
     }
 
     .live-numbers .placeholder {
+      grid-column: 1 / -1;
       font-family: 'DM Sans', sans-serif;
       font-size: 13px;
       color: var(--caramel);
@@ -522,7 +536,7 @@
       <div class="live-numbers" id="liveNumbers">
         <span class="placeholder">불러오는 중...</span>
       </div>
-      <button class="refresh-btn" onclick="fetchCurrent()">새로고침</button>
+      <button class="refresh-btn" onclick="forceRefresh()">새로고침</button>
     </div>
   </div>
 
@@ -716,8 +730,10 @@
     function updateLiveNumbers(numbers) {
       const el = document.getElementById('liveNumbers');
       if (numbers && numbers.length > 0) {
-        el.innerHTML = numbers.map(n => `<span>${n}</span>`).join('');
-        // pop animation on each number
+        const [first, ...rest] = numbers;
+        let html = `<span class="num-top highlight">${first}</span>`;
+        html += rest.map(n => `<span>${n}</span>`).join('');
+        el.innerHTML = html;
         el.querySelectorAll('span').forEach((s, i) => {
           s.style.animationDelay = `${i * 0.06}s`;
           s.classList.add('highlight');
@@ -729,11 +745,34 @@
     }
 
     function fetchCurrent() {
-      const el = document.getElementById('liveNumbers');
-      el.innerHTML = '<span class="placeholder">불러오는 중...</span>';
+      // 캐시 즉시 반환 (OCR 호출 없음)
       fetch('/api/current')
         .then(r => r.json())
-        .then(data => updateLiveNumbers(data.numbers))
+        .then(data => {
+          if (data.closed) {
+            document.getElementById('liveNumbers').innerHTML = '<span class="placeholder">영업 종료</span>';
+          } else {
+            updateLiveNumbers(data.numbers);
+          }
+        })
+        .catch(() => {});
+    }
+
+    function forceRefresh() {
+      // 강제 새로고침: OCR 재호출
+      const el = document.getElementById('liveNumbers');
+      el.innerHTML = '<span class="placeholder">새로고침 중...</span>';
+      fetch('/api/refresh')
+        .then(r => r.json())
+        .then(data => {
+          if (data.closed) {
+            el.innerHTML = '<span class="placeholder">영업 종료</span>';
+          } else if (data.error) {
+            el.innerHTML = '<span class="placeholder">오류, 재시도 해주세요</span>';
+          } else {
+            updateLiveNumbers(data.numbers);
+          }
+        })
         .catch(() => { el.innerHTML = '<span class="placeholder">오류</span>'; });
     }
 

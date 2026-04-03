@@ -15,38 +15,39 @@ from flask import Flask, render_template, Response, jsonify, stream_with_context
 from PIL import Image
 
 KST = ZoneInfo("Asia/Seoul")
-OPEN_HOUR = int(os.environ.get("OPEN_HOUR", "7"))    # 07:00 KST
+OPEN_HOUR  = int(os.environ.get("OPEN_HOUR",  "7"))   # 07:00 KST
 CLOSE_HOUR = int(os.environ.get("CLOSE_HOUR", "17"))  # 17:00 KST
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "8"))   # 대기자 있을 때 (초)
+IDLE_INTERVAL = int(os.environ.get("IDLE_INTERVAL", "60"))  # 대기자 없을 때 (초)
+
+CAFE_API_URL = "https://www.hanwha701.com/api/cafe701"
+OCR_API_URL  = "https://api.ocr.space/parse/image"
+OCR_API_KEY  = os.environ.get("OCR_API_KEY", "helloworld")
+
+app = Flask(__name__)
+
+# Active monitors: { number_str: [queue, ...] }
+monitors: dict[str, list[queue.Queue]] = {}
+monitors_lock = threading.Lock()
+
+# OCR 캐시
+_ocr_cache: dict = {"phash": None, "numbers": []}
 
 
 def is_operating_hours() -> bool:
     hour = datetime.now(KST).hour
     return OPEN_HOUR <= hour < CLOSE_HOUR
 
-app = Flask(__name__)
-
-CAFE_API_URL = "https://www.hanwha701.com/api/cafe701"
-OCR_API_URL = "https://api.ocr.space/parse/image"
-OCR_API_KEY = os.environ.get("OCR_API_KEY", "helloworld")  # 무료 계정: https://ocr.space/ocrapi
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "8"))  # seconds
-
-# Active monitors: { number_str: [queue, ...] }
-monitors: dict[str, list[queue.Queue]] = {}
-monitors_lock = threading.Lock()
-
-# OCR 캐시: 직전 이미지와 동일하면 API 호출 생략
-_ocr_cache: dict = {"phash": None, "numbers": []}
-
 
 def _phash(img: Image.Image, size: int = 16) -> bytes:
-    """16×16 흑백 썸네일 기반 퍼셉추얼 해시."""
+    """16×16 흑백 썸네일 퍼셉추얼 해시."""
     small = img.convert("L").resize((size, size), Image.LANCZOS)
-    avg = sum(small.getdata()) / (size * size)
-    return bytes(1 if p >= avg else 0 for p in small.getdata())
+    pixels = list(small.getdata())
+    avg = sum(pixels) / len(pixels)
+    return bytes(1 if p >= avg else 0 for p in pixels)
 
 
 def _phash_similar(h1: bytes, h2: bytes, threshold: int = 8) -> bool:
-    """해시 차이가 threshold 미만이면 동일 이미지로 간주."""
     return sum(a != b for a, b in zip(h1, h2)) < threshold
 
 
@@ -56,27 +57,25 @@ def fetch_image_bytes() -> bytes:
     return resp.content
 
 
-def extract_numbers(img_bytes: bytes) -> list[str]:
-    """Crop display area and OCR via ocr.space API."""
+def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
+    """이미지에서 주문 번호 추출. force=True 시 캐시 무시."""
     global _ocr_cache
     img = Image.open(io.BytesIO(img_bytes))
     w, h = img.size
 
-    # Crop to the order number panel only (excludes right info panel with time display)
+    # 주문 번호 패널만 크롭 (우측 안내/시간 패널 제외)
     left, top, right, bottom = int(w * 0.28), int(h * 0.10), int(w * 0.57), int(h * 0.68)
     cropped = img.crop((left, top, right, bottom))
 
-    # 직전 이미지와 동일하면 OCR API 호출 생략
+    # 퍼셉추얼 해시로 변화 감지 (force=True면 건너뜀)
     current_hash = _phash(cropped)
-    if _ocr_cache["phash"] is not None and _phash_similar(current_hash, _ocr_cache["phash"]):
+    if not force and _ocr_cache["phash"] is not None and _phash_similar(current_hash, _ocr_cache["phash"]):
         print(f"[ocr] 이미지 변화 없음, 캐시 반환: {_ocr_cache['numbers']}")
         return _ocr_cache["numbers"]
 
-    # OCR 속도 향상을 위해 최대 500px 너비로 리사이즈
-    max_w = 500
-    ratio = max_w / cropped.width
-    cropped = cropped.resize((max_w, int(cropped.height * ratio)), Image.LANCZOS)
-
+    # 500px로 리사이즈 후 OCR
+    ratio = 500 / cropped.width
+    cropped = cropped.resize((500, int(cropped.height * ratio)), Image.LANCZOS)
     buf = io.BytesIO()
     cropped.save(buf, format="JPEG", quality=80)
     img_b64 = base64.b64encode(buf.getvalue()).decode()
@@ -92,40 +91,40 @@ def extract_numbers(img_bytes: bytes) -> list[str]:
     result = resp.json()
     if not isinstance(result, dict):
         print(f"[ocr] 비정상 응답: {str(result)[:200]}")
-        return _ocr_cache["numbers"]  # 오류 시 직전 결과 반환
+        return _ocr_cache["numbers"]
+
     parsed = result.get("ParsedResults", [{}])[0].get("ParsedText", "")
-    # 1~4자리 숫자 (너무 긴 노이즈 제거)
     numbers = [t.strip() for t in parsed.split() if t.strip().isdigit() and 1 <= len(t.strip()) <= 4]
     _ocr_cache["phash"] = current_hash
     _ocr_cache["numbers"] = numbers
+    print(f"[ocr] 새 OCR 결과: {numbers}")
     return numbers
 
 
 def monitor_loop():
-    """Background thread: polls cafe API and notifies watchers."""
-    print(f"[monitor] 스레드 시작 (간격: {POLL_INTERVAL}초)")
+    """운영시간 중 항상 폴링: 대기자 있으면 8초, 없으면 60초 간격."""
+    print(f"[monitor] 스레드 시작")
     tick = 0
     while True:
         tick += 1
+
+        if not is_operating_hours():
+            print(f"[monitor] 운영시간 외 ({datetime.now(KST).strftime('%H:%M')} KST)")
+            time.sleep(POLL_INTERVAL)
+            continue
+
         with monitors_lock:
             has_watchers = bool(monitors)
             watcher_list = list(monitors.keys())
 
         print(f"[monitor] tick={tick} watchers={watcher_list}")
 
-        if not is_operating_hours():
-            print(f"[monitor] 운영시간 외 ({datetime.now(KST).strftime('%H:%M')} KST), 스킵")
-            time.sleep(POLL_INTERVAL)
-            continue
+        try:
+            img_bytes = fetch_image_bytes()
+            print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes)")
+            numbers = extract_numbers(img_bytes)
 
-        if has_watchers:
-            try:
-                print(f"[monitor] 이미지 가져오는 중...")
-                img_bytes = fetch_image_bytes()
-                print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes), OCR 시작...")
-                numbers = extract_numbers(img_bytes)
-                print(f"[monitor] OCR 결과: {numbers}")
-
+            if has_watchers:
                 with monitors_lock:
                     found_targets = []
                     for target, queues in monitors.items():
@@ -146,14 +145,13 @@ def monitor_loop():
                         del monitors[t]
                         print(f"[monitor] {t}번 발견! 모니터 제거")
 
-            except Exception as e:
-                import traceback
-                print(f"[monitor] 오류: {e}")
-                print(traceback.format_exc())
-        else:
-            print(f"[monitor] 대기자 없음, 스킵")
+        except Exception as e:
+            import traceback
+            print(f"[monitor] 오류: {e}")
+            print(traceback.format_exc())
 
-        time.sleep(POLL_INTERVAL)
+        # 대기자 있을 때 8초, 없을 때 60초
+        time.sleep(POLL_INTERVAL if has_watchers else IDLE_INTERVAL)
 
 
 @app.route("/")
@@ -163,7 +161,7 @@ def index():
 
 @app.route("/api/watch/<number>")
 def watch(number: str):
-    """SSE endpoint: streams status updates for the given number."""
+    """SSE endpoint: 번호 감지 시 알림."""
     number = number.strip()
     q: queue.Queue = queue.Queue(maxsize=50)
 
@@ -203,12 +201,20 @@ def watch(number: str):
 
 @app.route("/api/current")
 def current():
-    """One-shot check: returns currently displayed numbers."""
+    """캐시된 번호 즉시 반환 (OCR 호출 없음)."""
     if not is_operating_hours():
         return jsonify({"closed": True, "open_hour": OPEN_HOUR, "close_hour": CLOSE_HOUR})
+    return jsonify({"numbers": _ocr_cache["numbers"]})
+
+
+@app.route("/api/refresh")
+def refresh_numbers():
+    """강제 새로고침: 캐시 무시하고 새로 OCR."""
+    if not is_operating_hours():
+        return jsonify({"closed": True})
     try:
         img_bytes = fetch_image_bytes()
-        numbers = extract_numbers(img_bytes)
+        numbers = extract_numbers(img_bytes, force=True)
         return jsonify({"numbers": numbers})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -234,8 +240,6 @@ if __name__ == "__main__":
     ssl_context = (args.ssl_cert, args.ssl_key) if args.ssl_cert and args.ssl_key else None
     scheme = "https" if ssl_context else "http"
     print("=" * 50)
-    print(f"  서버 시작!")
-    print(f"  아이폰에서 접속: {scheme}://{local_ip}:{port}")
-    print(f"  (같은 와이파이에 연결되어 있어야 합니다)")
+    print(f"  서버 시작! {scheme}://{local_ip}:{port}")
     print("=" * 50)
     app.run(host="0.0.0.0", port=port, debug=False, ssl_context=ssl_context)
