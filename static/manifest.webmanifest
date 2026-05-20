@@ -1,0 +1,12 @@
+{
+  "name": "Cafe 701 번호 알림",
+  "short_name": "Cafe 701",
+  "description": "주문 번호가 나오면 iOS 잠금화면으로 알려드립니다.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FAF6EF",
+  "theme_color": "#2C1A0E",
+  "lang": "ko",
+  "orientation": "portrait"
+}

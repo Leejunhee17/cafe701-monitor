@@ -1,827 +1,1264 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Cafe 701 번호 알림</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --espresso:   #2C1A0E;
-      --roast:      #4A2C17;
-      --caramel:    #C8843A;
-      --amber:      #E8A84C;
-      --cream:      #FAF6EF;
-      --latte:      #F0E6D3;
-      --milk:       #FDFAF5;
-      --chalk:      #EDE8E0;
-      --sage:       #6B8F71;
-      --error:      #B84A3C;
-      --text-main:  #2C1A0E;
-      --text-muted: #8A7060;
-      --radius-lg:  18px;
-      --radius-md:  12px;
-      --radius-sm:  8px;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--cream);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0;
-      overflow-x: hidden;
-    }
-
-    /* ── Header bar ── */
-    .header {
-      width: 100%;
-      background: var(--espresso);
-      padding: 20px 24px 18px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-    }
-
-    .brand-tag {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: var(--amber);
-      margin-bottom: 4px;
-    }
-
-    .brand-name {
-      font-family: 'Fraunces', serif;
-      font-optical-sizing: auto;
-      font-size: 38px;
-      font-weight: 900;
-      color: var(--milk);
-      line-height: 1;
-      letter-spacing: -1px;
-    }
-
-    .brand-name em {
-      font-style: italic;
-      color: var(--amber);
-    }
-
-    .brand-sub {
-      font-size: 12px;
-      color: var(--caramel);
-      margin-top: 6px;
-      letter-spacing: 0.5px;
-    }
-
-    /* ── Live board (top display) ── */
-    .display-board {
-      width: 100%;
-      background: var(--roast);
-      padding: 16px 20px 20px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .display-board::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--caramel), transparent);
-      opacity: 0.4;
-    }
-
-    .board-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: var(--caramel);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .board-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--caramel);
-      opacity: 0.2;
-    }
-
-    .board-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .live-numbers {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px 8px;
-      flex: 1;
-      min-height: 44px;
-      align-items: center;
-    }
-
-    /* 첫 번째 번호: 두 열 전체 차지, 중앙 정렬, 더 크게 */
-    .live-numbers .num-top {
-      grid-column: 1 / -1;
-      text-align: center;
-      font-family: 'Fraunces', serif;
-      font-weight: 900;
-      font-size: 38px;
-      color: #fff;
-      line-height: 1;
-      letter-spacing: -1px;
-    }
-
-    .live-numbers span {
-      font-family: 'Fraunces', serif;
-      font-weight: 700;
-      font-size: 26px;
-      color: var(--amber);
-      line-height: 1;
-      letter-spacing: -0.5px;
-      text-align: center;
-      transition: color 0.2s ease;
-    }
-
-    .live-numbers span.highlight {
-      color: #fff;
-      animation: numPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    .live-numbers .placeholder {
-      grid-column: 1 / -1;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      color: var(--caramel);
-      font-weight: 400;
-      opacity: 0.6;
-    }
-
-    .refresh-btn {
-      flex-shrink: 0;
-      background: transparent;
-      border: 1px solid rgba(200, 132, 58, 0.3);
-      border-radius: var(--radius-sm);
-      color: var(--caramel);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      padding: 7px 12px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      width: auto;
-      margin-top: 0;
-    }
-
-    .refresh-btn:active {
-      background: rgba(200, 132, 58, 0.15);
-      transform: scale(0.96);
-    }
-
-    /* ── Main content area ── */
-    .content {
-      width: 100%;
-      max-width: 420px;
-      padding: 28px 20px 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    /* ── Input section ── */
-    .input-section {
-      background: var(--milk);
-      border-radius: var(--radius-lg);
-      padding: 24px 20px 20px;
-      box-shadow: 0 2px 12px rgba(44, 26, 14, 0.07), 0 1px 3px rgba(44, 26, 14, 0.04);
-    }
-
-    .input-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 2.5px;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      display: block;
-      margin-bottom: 10px;
-    }
-
-    input[type="number"] {
-      width: 100%;
-      padding: 16px 18px;
-      font-family: 'Fraunces', serif;
-      font-size: 36px;
-      font-weight: 700;
-      text-align: center;
-      border: 2px solid var(--latte);
-      border-radius: var(--radius-md);
-      outline: none;
-      color: var(--espresso);
-      letter-spacing: 6px;
-      background: var(--cream);
-      transition: border-color 0.2s, box-shadow 0.2s;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    input[type="number"]:focus {
-      border-color: var(--caramel);
-      box-shadow: 0 0 0 4px rgba(200, 132, 58, 0.12);
-    }
-
-    input[type="number"].shake {
-      animation: shake 0.4s ease;
-      border-color: var(--error);
-    }
-
-    input[type="number"]:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* hide spinner */
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
-
-    /* ── Buttons ── */
-    .btn-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    button {
-      flex: 1;
-      padding: 16px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      border: none;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      letter-spacing: 0.2px;
-      transition: transform 0.12s, opacity 0.15s, box-shadow 0.15s;
-      width: auto;
-      margin-top: 0;
-    }
-
-    button:active { transform: scale(0.97); }
-
-    #startBtn {
-      background: var(--espresso);
-      color: var(--amber);
-      box-shadow: 0 4px 14px rgba(44, 26, 14, 0.25);
-    }
-
-    #startBtn:hover {
-      box-shadow: 0 6px 20px rgba(44, 26, 14, 0.32);
-    }
-
-    #stopBtn {
-      background: var(--latte);
-      color: var(--error);
-      display: none;
-      box-shadow: none;
-    }
-
-    /* ── Status box ── */
-    .status-box {
-      margin-top: 16px;
-      border-radius: var(--radius-lg);
-      padding: 22px 20px;
-      text-align: center;
-      display: none;
-      position: relative;
-      overflow: hidden;
-      transition: background 0.3s;
-    }
-
-    /* watching */
-    .status-box.watching {
-      background: var(--latte);
-      border: 1.5px solid rgba(200, 132, 58, 0.2);
-    }
-
-    /* error */
-    .status-box.error {
-      background: #FBF0EF;
-      border: 1.5px solid rgba(184, 74, 60, 0.2);
-    }
-
-    /* found */
-    .status-box.found {
-      background: var(--espresso);
-      border: none;
-      animation: foundBurst 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .status-box.found::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 50% 60%, rgba(232, 168, 76, 0.25) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .status-icon {
-      font-size: 36px;
-      margin-bottom: 8px;
-      display: block;
-      line-height: 1;
-    }
-
-    .status-box.watching .status-icon {
-      animation: breathe 2.4s ease-in-out infinite;
-    }
-
-    .status-box.found .status-icon {
-      animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-      font-size: 48px;
-    }
-
-    .status-text {
-      font-family: 'Fraunces', serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--espresso);
-      line-height: 1.2;
-    }
-
-    .status-box.found .status-text {
-      color: var(--amber);
-      font-size: 24px;
-    }
-
-    .status-sub {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 5px;
-      font-weight: 400;
-    }
-
-    .status-box.found .status-sub {
-      color: rgba(250, 246, 239, 0.7);
-    }
-
-    .status-box.error .status-text { color: var(--error); }
-    .status-box.error .status-sub { color: var(--error); opacity: 0.7; }
-
-    /* Watching pulse ring */
-    .pulse-ring {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      background: rgba(200, 132, 58, 0.06);
-      animation: ringPulse 2s ease-out infinite;
-      pointer-events: none;
-    }
-
-    .status-box.watching .pulse-ring { display: block; }
-
-    /* Current numbers in status */
-    #currentNumbers {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
-
-    #currentNumbers span {
-      font-family: 'Fraunces', serif;
-      font-weight: 700;
-      font-size: 15px;
-      background: rgba(44, 26, 14, 0.07);
-      color: var(--espresso);
-      border-radius: var(--radius-sm);
-      padding: 4px 10px;
-    }
-
-    .status-box.found #currentNumbers span {
-      background: rgba(232, 168, 76, 0.18);
-      color: var(--amber);
-    }
-
-    /* Loading dot indicator */
-    .watching-dots {
-      display: none;
-      gap: 5px;
-      justify-content: center;
-      margin-top: 12px;
-    }
-
-    .status-box.watching .watching-dots { display: flex; }
-
-    .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--caramel);
-      opacity: 0.35;
-      animation: dotPulse 1.4s ease-in-out infinite;
-    }
-
-    .dot:nth-child(2) { animation-delay: 0.2s; }
-    .dot:nth-child(3) { animation-delay: 0.4s; }
-
-    /* ── Interval badge ── */
-    .meta-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 18px;
-      padding: 10px 16px;
-      background: var(--chalk);
-      border-radius: 100px;
-      align-self: center;
-    }
-
-    .meta-row .meta-icon {
-      font-size: 13px;
-      opacity: 0.6;
-    }
-
-    .meta-row span {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    .meta-row strong {
-      font-size: 12px;
-      color: var(--espresso);
-      font-weight: 600;
-    }
-
-    /* ── Animations ── */
-    @keyframes breathe {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50%       { transform: scale(1.08); opacity: 0.8; }
-    }
-
-    @keyframes celebrate {
-      0%   { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-      60%  { transform: scale(1.15) rotate(5deg); opacity: 1; }
-      100% { transform: scale(1) rotate(0deg); }
-    }
-
-    @keyframes foundBurst {
-      0%   { transform: scale(0.95); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    @keyframes ringPulse {
-      0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
-      100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
-    }
-
-    @keyframes numPop {
-      0%   { transform: scale(0.8); opacity: 0.5; }
-      60%  { transform: scale(1.15); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    @keyframes dotPulse {
-      0%, 100% { opacity: 0.2; transform: scale(0.9); }
-      50%       { opacity: 0.9; transform: scale(1.1); }
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%       { transform: translateX(-6px); }
-      40%       { transform: translateX(6px); }
-      60%       { transform: translateX(-4px); }
-      80%       { transform: translateX(4px); }
-    }
-  </style>
-</head>
-<body>
-
-  <!-- Header -->
-  <div class="header">
-    <div class="brand-tag">Order Tracker</div>
-    <div class="brand-name">Cafe <em>701</em></div>
-    <div class="brand-sub">번호가 나오면 바로 알려드릴게요</div>
-  </div>
-
-  <!-- Live display board -->
-  <div class="display-board">
-    <div class="board-label">지금 화면 번호</div>
-    <div class="board-row">
-      <div class="live-numbers" id="liveNumbers">
-        <span class="placeholder">불러오는 중...</span>
-      </div>
-      <button class="refresh-btn" onclick="forceRefresh()">새로고침</button>
-    </div>
-  </div>
-
-  <!-- Main content -->
-  <div class="content">
-
-    <!-- Input + buttons -->
-    <div class="input-section">
-      <label class="input-label">주문 번호</label>
-      <input
-        type="number"
-        id="numberInput"
-        placeholder="559"
-        inputmode="numeric"
-        pattern="[0-9]*"
-      >
-      <div class="btn-group">
-        <button id="startBtn" onclick="startWatching()">알림 시작</button>
-        <button id="stopBtn" onclick="stopWatching()">중지</button>
-      </div>
-    </div>
-
-    <!-- Status box -->
-    <div class="status-box" id="statusBox">
-      <div class="pulse-ring"></div>
-      <div class="status-icon" id="statusIcon">👀</div>
-      <div class="status-text" id="statusText">대기 중...</div>
-      <div class="status-sub" id="statusSub"></div>
-      <div id="currentNumbers"></div>
-      <div class="watching-dots">
-        <div class="dot"></div>
-        <div class="dot"></div>
-        <div class="dot"></div>
-      </div>
-    </div>
-
-    <!-- Interval badge -->
-    <div class="meta-row" style="display:flex;">
-      <span class="meta-icon">⏱</span>
-      <span>자동 확인 주기</span>
-      <strong>8초</strong>
-    </div>
-
-  </div>
-
-  <audio id="alertSound" preload="auto"></audio>
-
-  <script>
-    let eventSource = null;
-    let orderFound = false;
-    let watchingNumber = null;
-    let reconnectTimer = null;
-
-    function playAlert() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const freqs = [880, 1100, 1320];
-        freqs.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
-          gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + i * 0.15 + 0.05);
-          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + i * 0.15 + 0.3);
-          osc.start(ctx.currentTime + i * 0.15);
-          osc.stop(ctx.currentTime + i * 0.15 + 0.35);
-        });
-      } catch(e) { console.log('audio error', e); }
-    }
-
-    function vibrate() {
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
-    }
-
-    function showNotification(number) {
-      if (Notification.permission === 'granted') {
-        new Notification('☕ 커피 준비 완료!', {
-          body: `${number}번 주문이 나왔습니다!`,
-          icon: '/static/icon.png'
-        });
-      }
-    }
-
-    function requestNotificationPermission() {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-
-    function setStatus(state, icon, text, sub, numbers) {
-      const box = document.getElementById('statusBox');
-      box.style.display = 'block';
-      box.className = 'status-box ' + state;
-      document.getElementById('statusIcon').textContent = icon;
-      document.getElementById('statusText').textContent = text;
-      document.getElementById('statusSub').textContent = sub || '';
-      const numEl = document.getElementById('currentNumbers');
-      if (numbers && numbers.length > 0) {
-        numEl.innerHTML = numbers.map(n => `<span>${n}</span>`).join('');
-      } else {
-        numEl.innerHTML = '';
-      }
-    }
-
-    function startWatching() {
-      if (!checkOperatingHours()) return;
-      const input = document.getElementById('numberInput');
-      const number = input.value.trim();
-      if (!number) {
-        input.focus();
-        input.classList.add('shake');
-        setTimeout(() => input.classList.remove('shake'), 500);
-        return;
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Cafe 701" />
+    <meta name="theme-color" content="#2C1A0E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Cafe 701 번호 알림</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --espresso: #2c1a0e;
+        --roast: #4a2c17;
+        --caramel: #c8843a;
+        --amber: #e8a84c;
+        --cream: #faf6ef;
+        --latte: #f0e6d3;
+        --milk: #fdfaf5;
+        --chalk: #ede8e0;
+        --sage: #6b8f71;
+        --error: #b84a3c;
+        --text-main: #2c1a0e;
+        --text-muted: #8a7060;
+        --radius-lg: 18px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
       }
 
-      requestNotificationPermission();
-      stopWatching();
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-      orderFound = false;
-      watchingNumber = number;
-      localStorage.setItem('cafe701_watching', number);
-      document.getElementById('startBtn').style.display = 'none';
-      document.getElementById('stopBtn').style.display = 'block';
-      input.disabled = true;
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--cream);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0;
+        overflow-x: hidden;
+      }
 
-      setStatus('watching', '👀', `${number}번 대기 중...`, '화면을 확인하고 있어요');
+      /* ── Header bar ── */
+      .header {
+        width: 100%;
+        background: var(--espresso);
+        padding: 20px 24px 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
 
-      connectSSE(number);
-    }
+      .brand-tag {
+        font-family: "DM Sans", sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin-bottom: 4px;
+      }
 
-    function connectSSE(number) {
-      if (eventSource) { eventSource.close(); eventSource = null; }
-      eventSource = new EventSource(`/api/watch/${number}`);
+      .brand-name {
+        font-family: "Fraunces", serif;
+        font-optical-sizing: auto;
+        font-size: 38px;
+        font-weight: 900;
+        color: var(--milk);
+        line-height: 1;
+        letter-spacing: -1px;
+      }
 
-      eventSource.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        if (data.ping) return;
-        if (data.found) {
-          orderFound = true;
-          localStorage.removeItem('cafe701_watching');
-          setStatus('found', '🎉', `${number}번 나왔어요!`, '지금 바로 받으러 가세요!', data.numbers);
-          updateLiveNumbers(data.numbers);
-          playAlert();
-          vibrate();
-          showNotification(number);
-          stopWatching(false);
-        } else if (data.numbers) {
-          const now = new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-          setStatus('watching', '👀', `${number}번 대기 중...`, `마지막 확인: ${now}`, data.numbers);
-          updateLiveNumbers(data.numbers);
+      .brand-name em {
+        font-style: italic;
+        color: var(--amber);
+      }
+
+      .brand-sub {
+        font-size: 12px;
+        color: var(--caramel);
+        margin-top: 6px;
+        letter-spacing: 0.5px;
+      }
+
+      /* ── Live board (top display) ── */
+      .display-board {
+        width: 100%;
+        background: var(--roast);
+        padding: 16px 20px 20px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .display-board::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--caramel),
+          transparent
+        );
+        opacity: 0.4;
+      }
+
+      .board-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--caramel);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .board-label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--caramel);
+        opacity: 0.2;
+      }
+
+      .board-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .live-numbers {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 8px;
+        flex: 1;
+        min-height: 44px;
+        align-items: center;
+      }
+
+      /* 첫 번째 번호: 두 열 전체 차지, 중앙 정렬, 더 크게 */
+      .live-numbers .num-top {
+        grid-column: 1 / -1;
+        text-align: center;
+        font-family: "Fraunces", serif;
+        font-weight: 900;
+        font-size: 38px;
+        color: #fff;
+        line-height: 1;
+        letter-spacing: -1px;
+      }
+
+      .live-numbers span {
+        font-family: "Fraunces", serif;
+        font-weight: 700;
+        font-size: 26px;
+        color: var(--amber);
+        line-height: 1;
+        letter-spacing: -0.5px;
+        text-align: center;
+        transition: color 0.2s ease;
+      }
+
+      .live-numbers span.highlight {
+        color: #fff;
+        animation: numPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      .live-numbers .placeholder {
+        grid-column: 1 / -1;
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        color: var(--caramel);
+        font-weight: 400;
+        opacity: 0.6;
+      }
+
+      .refresh-btn {
+        flex-shrink: 0;
+        background: transparent;
+        border: 1px solid rgba(200, 132, 58, 0.3);
+        border-radius: var(--radius-sm);
+        color: var(--caramel);
+        font-family: "DM Sans", sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        padding: 7px 12px;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+        width: auto;
+        margin-top: 0;
+      }
+
+      .refresh-btn:active {
+        background: rgba(200, 132, 58, 0.15);
+        transform: scale(0.96);
+      }
+
+      /* ── Main content area ── */
+      .content {
+        width: 100%;
+        max-width: 420px;
+        padding: 28px 20px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      /* ── Input section ── */
+      .input-section {
+        background: var(--milk);
+        border-radius: var(--radius-lg);
+        padding: 24px 20px 20px;
+        box-shadow:
+          0 2px 12px rgba(44, 26, 14, 0.07),
+          0 1px 3px rgba(44, 26, 14, 0.04);
+      }
+
+      .push-card {
+        margin-top: 14px;
+        background: rgba(107, 143, 113, 0.1);
+        border: 1px solid rgba(107, 143, 113, 0.22);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        color: var(--espresso);
+      }
+
+      .push-card.error {
+        background: #fbf0ef;
+        border-color: rgba(184, 74, 60, 0.22);
+      }
+
+      .push-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .push-badge {
+        flex-shrink: 0;
+        border-radius: 999px;
+        background: var(--sage);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 4px 8px;
+        text-transform: uppercase;
+      }
+
+      .push-card.error .push-badge {
+        background: var(--error);
+      }
+
+      .push-copy {
+        margin-top: 7px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .input-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      input[type="number"] {
+        width: 100%;
+        padding: 16px 18px;
+        font-family: "Fraunces", serif;
+        font-size: 36px;
+        font-weight: 700;
+        text-align: center;
+        border: 2px solid var(--latte);
+        border-radius: var(--radius-md);
+        outline: none;
+        color: var(--espresso);
+        letter-spacing: 6px;
+        background: var(--cream);
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      input[type="number"]:focus {
+        border-color: var(--caramel);
+        box-shadow: 0 0 0 4px rgba(200, 132, 58, 0.12);
+      }
+
+      input[type="number"].shake {
+        animation: shake 0.4s ease;
+        border-color: var(--error);
+      }
+
+      input[type="number"]:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* hide spinner */
+      input[type="number"]::-webkit-inner-spin-button,
+      input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+      }
+
+      /* ── Buttons ── */
+      .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      button {
+        flex: 1;
+        padding: 16px;
+        font-family: "DM Sans", sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        letter-spacing: 0.2px;
+        transition:
+          transform 0.12s,
+          opacity 0.15s,
+          box-shadow 0.15s;
+        width: auto;
+        margin-top: 0;
+      }
+
+      button:active {
+        transform: scale(0.97);
+      }
+
+      #startBtn {
+        background: var(--espresso);
+        color: var(--amber);
+        box-shadow: 0 4px 14px rgba(44, 26, 14, 0.25);
+      }
+
+      #startBtn:hover {
+        box-shadow: 0 6px 20px rgba(44, 26, 14, 0.32);
+      }
+
+      #stopBtn {
+        background: var(--latte);
+        color: var(--error);
+        display: none;
+        box-shadow: none;
+      }
+
+      /* ── Status box ── */
+      .status-box {
+        margin-top: 16px;
+        border-radius: var(--radius-lg);
+        padding: 22px 20px;
+        text-align: center;
+        display: none;
+        position: relative;
+        overflow: hidden;
+        transition: background 0.3s;
+      }
+
+      /* watching */
+      .status-box.watching {
+        background: var(--latte);
+        border: 1.5px solid rgba(200, 132, 58, 0.2);
+      }
+
+      /* error */
+      .status-box.error {
+        background: #fbf0ef;
+        border: 1.5px solid rgba(184, 74, 60, 0.2);
+      }
+
+      /* found */
+      .status-box.found {
+        background: var(--espresso);
+        border: none;
+        animation: foundBurst 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .status-box.found::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 60%,
+          rgba(232, 168, 76, 0.25) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .status-icon {
+        font-size: 36px;
+        margin-bottom: 8px;
+        display: block;
+        line-height: 1;
+      }
+
+      .status-box.watching .status-icon {
+        animation: breathe 2.4s ease-in-out infinite;
+      }
+
+      .status-box.found .status-icon {
+        animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        font-size: 48px;
+      }
+
+      .status-text {
+        font-family: "Fraunces", serif;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--espresso);
+        line-height: 1.2;
+      }
+
+      .status-box.found .status-text {
+        color: var(--amber);
+        font-size: 24px;
+      }
+
+      .status-sub {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 5px;
+        font-weight: 400;
+      }
+
+      .status-box.found .status-sub {
+        color: rgba(250, 246, 239, 0.7);
+      }
+
+      .status-box.error .status-text {
+        color: var(--error);
+      }
+      .status-box.error .status-sub {
+        color: var(--error);
+        opacity: 0.7;
+      }
+
+      /* Watching pulse ring */
+      .pulse-ring {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: rgba(200, 132, 58, 0.06);
+        animation: ringPulse 2s ease-out infinite;
+        pointer-events: none;
+      }
+
+      .status-box.watching .pulse-ring {
+        display: block;
+      }
+
+      /* Current numbers in status */
+      #currentNumbers {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+      }
+
+      #currentNumbers span {
+        font-family: "Fraunces", serif;
+        font-weight: 700;
+        font-size: 15px;
+        background: rgba(44, 26, 14, 0.07);
+        color: var(--espresso);
+        border-radius: var(--radius-sm);
+        padding: 4px 10px;
+      }
+
+      .status-box.found #currentNumbers span {
+        background: rgba(232, 168, 76, 0.18);
+        color: var(--amber);
+      }
+
+      /* Loading dot indicator */
+      .watching-dots {
+        display: none;
+        gap: 5px;
+        justify-content: center;
+        margin-top: 12px;
+      }
+
+      .status-box.watching .watching-dots {
+        display: flex;
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--caramel);
+        opacity: 0.35;
+        animation: dotPulse 1.4s ease-in-out infinite;
+      }
+
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      /* ── Interval badge ── */
+      .meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 18px;
+        padding: 10px 16px;
+        background: var(--chalk);
+        border-radius: 100px;
+        align-self: center;
+      }
+
+      .meta-row .meta-icon {
+        font-size: 13px;
+        opacity: 0.6;
+      }
+
+      .meta-row span {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .meta-row strong {
+        font-size: 12px;
+        color: var(--espresso);
+        font-weight: 600;
+      }
+
+      /* ── Animations ── */
+      @keyframes breathe {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
         }
-      };
-
-      eventSource.onerror = function() {
-        if (orderFound) return;
-        if (eventSource) { eventSource.close(); eventSource = null; }
-        let countdown = 5;
-        setStatus('error', '⚠️', '연결이 끊겼습니다', `${countdown}초 후 재연결...`);
-        clearInterval(reconnectTimer);
-        reconnectTimer = setInterval(() => {
-          countdown--;
-          if (countdown <= 0) {
-            clearInterval(reconnectTimer);
-            setStatus('watching', '👀', `${number}번 대기 중...`, '재연결 중...');
-            connectSSE(number);
-          } else {
-            document.getElementById('statusSub').textContent = `${countdown}초 후 재연결...`;
-          }
-        }, 1000);
-      };
-    }
-
-    function stopWatching(resetUI = true) {
-      clearInterval(reconnectTimer);
-      if (eventSource) { eventSource.close(); eventSource = null; }
-      if (resetUI) {
-        document.getElementById('startBtn').style.display = 'block';
-        document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('numberInput').disabled = false;
-        document.getElementById('statusBox').style.display = 'none';
-      } else {
-        document.getElementById('startBtn').style.display = 'block';
-        document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('numberInput').disabled = false;
-      }
-    }
-
-    function updateLiveNumbers(numbers) {
-      const el = document.getElementById('liveNumbers');
-      if (numbers && numbers.length > 0) {
-        const [first, ...rest] = numbers;
-        let html = `<span class="num-top highlight">${first}</span>`;
-        html += rest.map(n => `<span>${n}</span>`).join('');
-        el.innerHTML = html;
-        el.querySelectorAll('span').forEach((s, i) => {
-          s.style.animationDelay = `${i * 0.06}s`;
-          s.classList.add('highlight');
-          setTimeout(() => s.classList.remove('highlight'), 500 + i * 60);
-        });
-      } else {
-        el.innerHTML = '<span class="placeholder">번호 없음</span>';
-      }
-    }
-
-    function fetchCurrent() {
-      // 캐시 즉시 반환 (OCR 호출 없음)
-      fetch('/api/current')
-        .then(r => r.json())
-        .then(data => {
-          if (data.closed) {
-            document.getElementById('liveNumbers').innerHTML = '<span class="placeholder">영업 종료</span>';
-          } else {
-            updateLiveNumbers(data.numbers);
-          }
-        })
-        .catch(() => {});
-    }
-
-    function forceRefresh() {
-      // 강제 새로고침: OCR 재호출
-      const el = document.getElementById('liveNumbers');
-      el.innerHTML = '<span class="placeholder">새로고침 중...</span>';
-      fetch('/api/refresh')
-        .then(r => r.json())
-        .then(data => {
-          if (data.closed) {
-            el.innerHTML = '<span class="placeholder">영업 종료</span>';
-          } else if (data.error) {
-            el.innerHTML = '<span class="placeholder">오류, 재시도 해주세요</span>';
-          } else {
-            updateLiveNumbers(data.numbers);
-          }
-        })
-        .catch(() => { el.innerHTML = '<span class="placeholder">오류</span>'; });
-    }
-
-    // Enter key support
-    document.getElementById('numberInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') startWatching();
-    });
-
-    // iOS 백그라운드 복귀 시 즉시 재연결
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && watchingNumber && !orderFound) {
-        clearInterval(reconnectTimer);
-        if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
-          setStatus('watching', '👀', `${watchingNumber}번 대기 중...`, '재연결 중...');
-          connectSSE(watchingNumber);
+        50% {
+          transform: scale(1.08);
+          opacity: 0.8;
         }
       }
-    });
 
-    // localStorage에서 대기 중인 번호 복원 (페이지 새로고침 대비)
-    const savedNumber = localStorage.getItem('cafe701_watching');
-    if (savedNumber) {
-      document.getElementById('numberInput').value = savedNumber;
-    }
+      @keyframes celebrate {
+        0% {
+          transform: scale(0.5) rotate(-10deg);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.15) rotate(5deg);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+        }
+      }
 
-    // 운영시간 체크 (KST 기준 07:00~17:00)
-    function checkOperatingHours() {
-      const now = new Date();
-      // KST = UTC+9
-      const kstHour = (now.getUTCHours() + 9) % 24;
-      return kstHour >= 7 && kstHour < 17;
-    }
+      @keyframes foundBurst {
+        0% {
+          transform: scale(0.95);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
 
-    function applyOperatingHoursUI() {
-      if (!checkOperatingHours()) {
+      @keyframes ringPulse {
+        0% {
+          transform: translate(-50%, -50%) scale(0.6);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(2.2);
+          opacity: 0;
+        }
+      }
+
+      @keyframes numPop {
+        0% {
+          transform: scale(0.8);
+          opacity: 0.5;
+        }
+        60% {
+          transform: scale(1.15);
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      @keyframes dotPulse {
+        0%,
+        100% {
+          opacity: 0.2;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 0.9;
+          transform: scale(1.1);
+        }
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        20% {
+          transform: translateX(-6px);
+        }
+        40% {
+          transform: translateX(6px);
+        }
+        60% {
+          transform: translateX(-4px);
+        }
+        80% {
+          transform: translateX(4px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <div class="brand-tag">Order Tracker</div>
+      <div class="brand-name">Cafe <em>701</em></div>
+      <div class="brand-sub">번호가 나오면 바로 알려드릴게요</div>
+    </div>
+
+    <!-- Live display board -->
+    <div class="display-board">
+      <div class="board-label">지금 화면 번호</div>
+      <div class="board-row">
+        <div class="live-numbers" id="liveNumbers">
+          <span class="placeholder">불러오는 중...</span>
+        </div>
+        <button class="refresh-btn" onclick="forceRefresh()">새로고침</button>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+      <!-- Input + buttons -->
+      <div class="input-section">
+        <label class="input-label">주문 번호</label>
+        <input
+          type="number"
+          id="numberInput"
+          placeholder="559"
+          inputmode="numeric"
+          pattern="[0-9]*"
+        />
+        <div class="btn-group">
+          <button id="startBtn" onclick="startWatching()">알림 시작</button>
+          <button id="stopBtn" onclick="stopWatching()">중지</button>
+        </div>
+      </div>
+
+      <div class="push-card" id="pushCard">
+        <div class="push-title">
+          <span>잠금화면 푸시 알림</span>
+          <span class="push-badge" id="pushStateBadge">확인 중</span>
+        </div>
+        <div class="push-copy" id="pushHelp">
+          홈 화면에 추가한 앱에서 알림을 허용하면, 화면이 꺼져도 서버가 대신
+          감시합니다.
+        </div>
+      </div>
+
+      <!-- Status box -->
+      <div class="status-box" id="statusBox">
+        <div class="pulse-ring"></div>
+        <div class="status-icon" id="statusIcon">👀</div>
+        <div class="status-text" id="statusText">대기 중...</div>
+        <div class="status-sub" id="statusSub"></div>
+        <div id="currentNumbers"></div>
+        <div class="watching-dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+
+      <!-- Interval badge -->
+      <div class="meta-row" style="display: flex">
+        <span class="meta-icon">⏱</span>
+        <span>자동 확인 주기</span>
+        <strong>8초</strong>
+      </div>
+    </div>
+
+    <audio id="alertSound" preload="auto"></audio>
+
+    <script>
+      let eventSource = null;
+      let orderFound = false;
+      let watchingNumber = null;
+      let reconnectTimer = null;
+      let serviceWorkerRegistration = null;
+      let pushSubscriptionId = localStorage.getItem(
+        "cafe701_push_subscription_id",
+      );
+      let pushWatchId = localStorage.getItem("cafe701_push_watch_id");
+      let pushConfig = null;
+      let serverPushActiveForCurrentWatch = false;
+
+      function playAlert() {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const freqs = [880, 1100, 1320];
+          freqs.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+            gain.gain.linearRampToValueAtTime(
+              0.4,
+              ctx.currentTime + i * 0.15 + 0.05,
+            );
+            gain.gain.linearRampToValueAtTime(
+              0,
+              ctx.currentTime + i * 0.15 + 0.3,
+            );
+            osc.start(ctx.currentTime + i * 0.15);
+            osc.stop(ctx.currentTime + i * 0.15 + 0.35);
+          });
+        } catch (e) {
+          console.log("audio error", e);
+        }
+      }
+
+      function vibrate() {
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      }
+
+      function showNotification(number) {
+        if (Notification.permission === "granted") {
+          new Notification("☕ 커피 준비 완료!", {
+            body: `${number}번 주문이 나왔습니다!`,
+            icon: "/static/icon.png",
+          });
+        }
+      }
+
+      function requestNotificationPermission() {
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+        }
+      }
+
+      function setPushUI(state, badge, help) {
+        const card = document.getElementById("pushCard");
+        card.className = state === "error" ? "push-card error" : "push-card";
+        document.getElementById("pushStateBadge").textContent = badge;
+        document.getElementById("pushHelp").textContent = help;
+      }
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+      }
+
+      async function refreshPushStatus() {
+        try {
+          const res = await fetch("/api/push/config");
+          pushConfig = await res.json();
+          if (
+            !("serviceWorker" in navigator) ||
+            !("PushManager" in window) ||
+            !("Notification" in window)
+          ) {
+            setPushUI(
+              "error",
+              "미지원",
+              "이 브라우저는 Web Push를 지원하지 않습니다. iOS 16.4+ 홈 화면 앱에서 사용해주세요.",
+            );
+          } else if (!pushConfig.supported) {
+            setPushUI(
+              "error",
+              "설정 필요",
+              "서버에 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 환경 변수를 설정해야 합니다.",
+            );
+          } else if (Notification.permission === "granted") {
+            setPushUI(
+              "ready",
+              "준비됨",
+              "화면이 꺼져도 서버가 번호를 감시하고 잠금화면으로 알려드립니다.",
+            );
+          } else {
+            setPushUI(
+              "ready",
+              "허용 필요",
+              "알림 시작을 누르면 iOS 알림 권한을 요청합니다. 홈 화면 앱에서 허용해주세요.",
+            );
+          }
+        } catch (e) {
+          setPushUI(
+            "error",
+            "오류",
+            "푸시 설정을 확인하지 못했습니다. 네트워크를 확인해주세요.",
+          );
+        }
+      }
+
+      async function ensurePushSubscription() {
+        if (!pushConfig) await refreshPushStatus();
+        if (!pushConfig || !pushConfig.supported)
+          throw new Error("push_not_configured");
+        if (
+          !("serviceWorker" in navigator) ||
+          !("PushManager" in window) ||
+          !("Notification" in window)
+        )
+          throw new Error("push_not_supported");
+
+        serviceWorkerRegistration =
+          serviceWorkerRegistration ||
+          (await navigator.serviceWorker.register("/service-worker.js"));
+        let permission = Notification.permission;
+        if (permission === "default")
+          permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("notification_denied");
+
+        let subscription =
+          await serviceWorkerRegistration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await serviceWorkerRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(pushConfig.publicKey),
+          });
+        }
+
+        const res = await fetch("/api/push/subscriptions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription }),
+        });
+        if (!res.ok) throw new Error("subscription_save_failed");
+        const data = await res.json();
+        pushSubscriptionId = data.subscriptionId;
+        localStorage.setItem(
+          "cafe701_push_subscription_id",
+          pushSubscriptionId,
+        );
+        return pushSubscriptionId;
+      }
+
+      async function createServerWatch(number) {
+        const subscriptionId = await ensurePushSubscription();
+        const res = await fetch("/api/push/watches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number, subscriptionId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "watch_create_failed");
+        pushWatchId = data.watchId;
+        serverPushActiveForCurrentWatch = true;
+        localStorage.setItem("cafe701_push_watch_id", pushWatchId);
+        setPushUI(
+          "ready",
+          "감시 중",
+          "이제 화면을 꺼도 괜찮아요. 서버가 번호를 찾으면 iOS 잠금화면으로 알려드립니다.",
+        );
+        return data;
+      }
+
+      async function deleteServerWatch() {
+        const watchId =
+          pushWatchId || localStorage.getItem("cafe701_push_watch_id");
+        pushWatchId = null;
+        localStorage.removeItem("cafe701_push_watch_id");
+        if (!watchId) return;
+        try {
+          await fetch(`/api/push/watches/${watchId}`, { method: "DELETE" });
+        } catch (e) {
+          console.log("watch delete failed", e);
+        }
+      }
+
+      function clearSavedWatch() {
+        pushWatchId = null;
+        serverPushActiveForCurrentWatch = false;
+        localStorage.removeItem("cafe701_push_watch_id");
+        localStorage.removeItem("cafe701_watching");
+      }
+
+      function setStatus(state, icon, text, sub, numbers) {
+        const box = document.getElementById("statusBox");
+        box.style.display = "block";
+        box.className = "status-box " + state;
+        document.getElementById("statusIcon").textContent = icon;
+        document.getElementById("statusText").textContent = text;
+        document.getElementById("statusSub").textContent = sub || "";
+        const numEl = document.getElementById("currentNumbers");
+        if (numbers && numbers.length > 0) {
+          numEl.innerHTML = numbers.map((n) => `<span>${n}</span>`).join("");
+        } else {
+          numEl.innerHTML = "";
+        }
+      }
+
+      async function startWatching() {
+        if (!checkOperatingHours()) return;
+        const input = document.getElementById("numberInput");
+        const number = input.value.trim();
+        if (!/^[0-9]{1,4}$/.test(number)) {
+          input.focus();
+          input.classList.add("shake");
+          setTimeout(() => input.classList.remove("shake"), 500);
+          setStatus(
+            "error",
+            "⚠️",
+            "번호를 확인해주세요",
+            "주문번호는 숫자 1~4자리로 입력해주세요.",
+          );
+          return;
+        }
+
+        await stopWatching(true, true);
+
+        orderFound = false;
+        watchingNumber = number;
+        localStorage.setItem("cafe701_watching", number);
+        document.getElementById("startBtn").style.display = "none";
+        document.getElementById("stopBtn").style.display = "block";
+        input.disabled = true;
+
+        setStatus(
+          "watching",
+          "🔔",
+          `${number}번 서버 감시 시작 중...`,
+          "잠금화면 푸시를 준비하고 있어요",
+        );
+
+        try {
+          await createServerWatch(number);
+        } catch (e) {
+          console.log("push watch failed; falling back to foreground SSE", e);
+          pushWatchId = null;
+          serverPushActiveForCurrentWatch = false;
+          localStorage.removeItem("cafe701_push_watch_id");
+          requestNotificationPermission();
+          setPushUI(
+            "error",
+            "전면 알림만",
+            "잠금화면 푸시는 준비되지 않았지만, 앱이 열려 있으면 알림을 받을 수 있습니다.",
+          );
+        }
+
+        setStatus(
+          "watching",
+          "👀",
+          `${number}번 대기 중...`,
+          serverPushActiveForCurrentWatch
+            ? "화면을 꺼도 서버가 계속 확인합니다"
+            : "앱이 열려 있는 동안 확인합니다 · 푸시 설정을 확인해주세요",
+        );
+        connectSSE(number);
+      }
+
+      function connectSSE(number) {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        eventSource = new EventSource(`/api/watch/${number}`);
+
+        eventSource.onmessage = function (e) {
+          const data = JSON.parse(e.data);
+          if (data.ping) return;
+          if (data.found) {
+            orderFound = true;
+            const hadServerPush = serverPushActiveForCurrentWatch;
+            clearSavedWatch();
+            setStatus(
+              "found",
+              "🎉",
+              `${number}번 나왔어요!`,
+              "지금 바로 받으러 가세요!",
+              data.numbers,
+            );
+            updateLiveNumbers(data.numbers);
+            playAlert();
+            vibrate();
+            if (!hadServerPush) showNotification(number);
+            stopWatching(false, false);
+          } else if (data.numbers) {
+            const now = new Date().toLocaleTimeString("ko-KR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            });
+            setStatus(
+              "watching",
+              "👀",
+              `${number}번 대기 중...`,
+              `마지막 확인: ${now}`,
+              data.numbers,
+            );
+            updateLiveNumbers(data.numbers);
+          }
+        };
+
+        eventSource.onerror = function () {
+          if (orderFound) return;
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          let countdown = 5;
+          setStatus(
+            "watching",
+            "📡",
+            `${number}번 서버 감시 중`,
+            `화면 표시는 ${countdown}초 후 재연결합니다`,
+          );
+          clearInterval(reconnectTimer);
+          reconnectTimer = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+              clearInterval(reconnectTimer);
+              setStatus(
+                "watching",
+                "👀",
+                `${number}번 대기 중...`,
+                "서버 감시는 유지 중 · 화면만 재연결합니다",
+              );
+              connectSSE(number);
+            } else {
+              document.getElementById("statusSub").textContent =
+                `화면 표시는 ${countdown}초 후 재연결합니다`;
+            }
+          }, 1000);
+        };
+      }
+
+      async function stopWatching(resetUI = true, notifyServer = true) {
+        clearInterval(reconnectTimer);
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (notifyServer) await deleteServerWatch();
+        serverPushActiveForCurrentWatch = false;
+        if (resetUI) {
+          localStorage.removeItem("cafe701_watching");
+          watchingNumber = null;
+          document.getElementById("startBtn").style.display = "block";
+          document.getElementById("stopBtn").style.display = "none";
+          document.getElementById("numberInput").disabled = false;
+          document.getElementById("statusBox").style.display = "none";
+          refreshPushStatus();
+        } else {
+          document.getElementById("startBtn").style.display = "block";
+          document.getElementById("stopBtn").style.display = "none";
+          document.getElementById("numberInput").disabled = false;
+        }
+      }
+
+      function updateLiveNumbers(numbers) {
+        const el = document.getElementById("liveNumbers");
+        if (numbers && numbers.length > 0) {
+          const [first, ...rest] = numbers;
+          let html = `<span class="num-top highlight">${first}</span>`;
+          html += rest.map((n) => `<span>${n}</span>`).join("");
+          el.innerHTML = html;
+          el.querySelectorAll("span").forEach((s, i) => {
+            s.style.animationDelay = `${i * 0.06}s`;
+            s.classList.add("highlight");
+            setTimeout(() => s.classList.remove("highlight"), 500 + i * 60);
+          });
+        } else {
+          el.innerHTML = '<span class="placeholder">번호 없음</span>';
+        }
+      }
+
+      function fetchCurrent() {
+        // 캐시 즉시 반환 (OCR 호출 없음)
+        fetch("/api/current")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.closed) {
+              document.getElementById("liveNumbers").innerHTML =
+                '<span class="placeholder">영업 종료</span>';
+            } else {
+              updateLiveNumbers(data.numbers);
+            }
+          })
+          .catch(() => {});
+      }
+
+      function forceRefresh() {
+        // 강제 새로고침: OCR 재호출
+        const el = document.getElementById("liveNumbers");
+        el.innerHTML = '<span class="placeholder">새로고침 중...</span>';
+        fetch("/api/refresh")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.closed) {
+              el.innerHTML = '<span class="placeholder">영업 종료</span>';
+            } else if (data.error) {
+              el.innerHTML =
+                '<span class="placeholder">오류, 재시도 해주세요</span>';
+            } else {
+              updateLiveNumbers(data.numbers);
+            }
+          })
+          .catch(() => {
+            el.innerHTML = '<span class="placeholder">오류</span>';
+          });
+      }
+
+      // Enter key support
+      document
+        .getElementById("numberInput")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") startWatching();
+        });
+
+      // iOS 백그라운드 복귀 시 즉시 재연결
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && watchingNumber && !orderFound) {
+          clearInterval(reconnectTimer);
+          if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+            setStatus(
+              "watching",
+              "👀",
+              `${watchingNumber}번 대기 중...`,
+              "서버 감시는 유지 중 · 화면만 재연결합니다",
+            );
+            connectSSE(watchingNumber);
+          }
+        }
+      });
+
+      // localStorage에서 대기 중인 번호 복원 (페이지 새로고침 대비)
+      const savedNumber = localStorage.getItem("cafe701_watching");
+      if (savedNumber && /^[0-9]{1,4}$/.test(savedNumber)) {
+        const input = document.getElementById("numberInput");
+        input.value = savedNumber;
+        if (pushWatchId && checkOperatingHours()) {
+          watchingNumber = savedNumber;
+          input.disabled = true;
+          document.getElementById("startBtn").style.display = "none";
+          document.getElementById("stopBtn").style.display = "block";
+          serverPushActiveForCurrentWatch = false;
+          setPushUI(
+            "ready",
+            "복원됨",
+            "이전 감시를 복원했습니다. 서버 재시작 후에는 전면 알림으로 보완합니다.",
+          );
+          setStatus(
+            "watching",
+            "👀",
+            `${savedNumber}번 대기 중...`,
+            "서버가 계속 확인 중입니다",
+          );
+          connectSSE(savedNumber);
+        }
+      } else if (savedNumber) {
+        localStorage.removeItem("cafe701_watching");
+        localStorage.removeItem("cafe701_push_watch_id");
+      }
+
+      // 운영시간 체크 (KST 기준 07:00~17:00)
+      function checkOperatingHours() {
         const now = new Date();
+        // KST = UTC+9
         const kstHour = (now.getUTCHours() + 9) % 24;
-        const msg = kstHour < 7 ? `오전 7시에 오픈합니다` : `오늘 운영이 종료됐습니다 (17:00)`;
-        setStatus('error', '☕', '운영시간이 아닙니다', msg);
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('startBtn').style.opacity = '0.4';
-        document.getElementById('numberInput').disabled = true;
-        document.getElementById('statusBox').style.display = 'block';
+        return kstHour >= 7 && kstHour < 17;
       }
-    }
 
-    // 페이지 로드 시 현재 번호 조회
-    applyOperatingHoursUI();
-    if (checkOperatingHours()) fetchCurrent();
-  </script>
-</body>
+      function applyOperatingHoursUI() {
+        if (!checkOperatingHours()) {
+          const now = new Date();
+          const kstHour = (now.getUTCHours() + 9) % 24;
+          const msg =
+            kstHour < 7
+              ? `오전 7시에 오픈합니다`
+              : `오늘 운영이 종료됐습니다 (17:00)`;
+          setStatus("error", "☕", "운영시간이 아닙니다", msg);
+          document.getElementById("startBtn").disabled = true;
+          document.getElementById("startBtn").style.opacity = "0.4";
+          document.getElementById("numberInput").disabled = true;
+          document.getElementById("statusBox").style.display = "block";
+        }
+      }
+
+      // 페이지 로드 시 현재 번호 조회
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then((reg) => {
+            serviceWorkerRegistration = reg;
+          })
+          .catch((e) => console.log("service worker register failed", e));
+      }
+      refreshPushStatus();
+      applyOperatingHoursUI();
+      if (checkOperatingHours()) fetchCurrent();
+    </script>
+  </body>
 </html>
