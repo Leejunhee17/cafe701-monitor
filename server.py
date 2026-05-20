@@ -373,6 +373,64 @@ def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
     return numbers
 
 
+def _watcher_snapshot() -> tuple[list[str], list[str]]:
+    with monitors_lock:
+        sse_watcher_list = list(sse_monitors.keys())
+    with push_lock:
+        push_watcher_list = _active_push_watch_numbers_locked()
+    return sse_watcher_list, push_watcher_list
+
+
+def _sleep_until_next_poll(has_watchers: bool) -> None:
+    interval = POLL_INTERVAL if has_watchers else IDLE_INTERVAL
+    monitor_wake_event.wait(interval)
+    monitor_wake_event.clear()
+
+
+def _broadcast_sse_numbers(numbers: list[str]) -> None:
+    with monitors_lock:
+        found_targets = []
+        for target, queues in list(sse_monitors.items()):
+            found = target in numbers
+            print(f"[monitor] sse target={target} found={found}")
+            msg = {"found": found, "numbers": numbers}
+            dead = []
+            for q in queues:
+                try:
+                    q.put_nowait(msg)
+                except queue.Full:
+                    dead.append(q)
+            for q in dead:
+                queues.remove(q)
+            if found:
+                found_targets.append(target)
+        for target in found_targets:
+            sse_monitors.pop(target, None)
+            print(f"[monitor] {target}번 발견! SSE 모니터 제거")
+
+
+def _send_pending_push_notifications(numbers: list[str]) -> None:
+    for notification in _collect_push_notifications(numbers):
+        if _send_push_notification(notification):
+            with push_lock:
+                _remove_push_watch_locked(notification["watch_id"])
+
+
+def _poll_once(tick: int) -> bool:
+    sse_watcher_list, push_watcher_list = _watcher_snapshot()
+    has_watchers = bool(sse_watcher_list or push_watcher_list)
+    print(f"[monitor] tick={tick} sse={sse_watcher_list} push={push_watcher_list}")
+
+    img_bytes = fetch_image_bytes()
+    print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes)")
+    numbers = extract_numbers(img_bytes)
+
+    if sse_watcher_list:
+        _broadcast_sse_numbers(numbers)
+    _send_pending_push_notifications(numbers)
+    return has_watchers
+
+
 def monitor_loop():
     """운영시간 중 항상 폴링: SSE와 서버-side push watch를 분리해 감시."""
     print("[monitor] 스레드 시작")
@@ -382,58 +440,22 @@ def monitor_loop():
 
         if not is_operating_hours():
             print(f"[monitor] 운영시간 외 ({datetime.now(KST).strftime('%H:%M')} KST)")
-            monitor_wake_event.wait(POLL_INTERVAL)
-            monitor_wake_event.clear()
+            _sleep_until_next_poll(has_watchers=True)
             continue
 
-        with monitors_lock:
-            sse_watcher_list = list(sse_monitors.keys())
-        with push_lock:
-            push_watcher_list = _active_push_watch_numbers_locked()
-        has_watchers = bool(sse_watcher_list or push_watcher_list)
-
-        print(f"[monitor] tick={tick} sse={sse_watcher_list} push={push_watcher_list}")
-
+        has_watchers = False
         try:
-            img_bytes = fetch_image_bytes()
-            print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes)")
-            numbers = extract_numbers(img_bytes)
-
-            if sse_watcher_list:
-                with monitors_lock:
-                    found_targets = []
-                    for target, queues in list(sse_monitors.items()):
-                        found = target in numbers
-                        print(f"[monitor] sse target={target} found={found}")
-                        msg = {"found": found, "numbers": numbers}
-                        dead = []
-                        for q in queues:
-                            try:
-                                q.put_nowait(msg)
-                            except queue.Full:
-                                dead.append(q)
-                        for q in dead:
-                            queues.remove(q)
-                        if found:
-                            found_targets.append(target)
-                    for t in found_targets:
-                        sse_monitors.pop(t, None)
-                        print(f"[monitor] {t}번 발견! SSE 모니터 제거")
-
-            for notification in _collect_push_notifications(numbers):
-                if _send_push_notification(notification):
-                    with push_lock:
-                        _remove_push_watch_locked(notification["watch_id"])
-
+            has_watchers = _poll_once(tick)
         except Exception as e:
             import traceback
 
             print(f"[monitor] 오류: {e}")
             print(traceback.format_exc())
+            sse_watcher_list, push_watcher_list = _watcher_snapshot()
+            has_watchers = bool(sse_watcher_list or push_watcher_list)
 
         # 대기자 있을 때 8초, 없을 때 60초. 새 push watch 등록 시 즉시 깨움.
-        monitor_wake_event.wait(POLL_INTERVAL if has_watchers else IDLE_INTERVAL)
-        monitor_wake_event.clear()
+        _sleep_until_next_poll(has_watchers)
 
 
 @app.route("/")
