@@ -220,20 +220,16 @@ def _upsert_watch_locked(number: str, subscription_id: str) -> tuple[str, bool]:
 
 def _collect_push_notifications(numbers: list[str]) -> list[dict]:
     notifications = []
-    now = _now_ts()
     with push_lock:
         _prune_expired_watches_locked()
         watches = push_state.setdefault("watches", {})
         subscriptions = push_state.setdefault("subscriptions", {})
         seen: set[tuple[str, str]] = set()
-        changed = False
         for watch_id, watch in list(watches.items()):
             number = str(watch.get("number", ""))
             subscription_id = str(watch.get("subscription_id", ""))
-            if number not in numbers or watch.get("notified_at"):
+            if number not in numbers:
                 continue
-            watch["notified_at"] = now
-            changed = True
             dedup_key = (subscription_id, number)
             subscription = subscriptions.get(subscription_id)
             if subscription and dedup_key not in seen:
@@ -247,16 +243,18 @@ def _collect_push_notifications(numbers: list[str]) -> list[dict]:
                     }
                 )
                 seen.add(dedup_key)
-            watches.pop(watch_id, None)
-        if changed:
-            _save_push_state_locked()
     return notifications
 
 
-def _send_push_notification(item: dict) -> None:
+def _remove_push_watch_locked(watch_id: str) -> None:
+    if push_state.setdefault("watches", {}).pop(watch_id, None) is not None:
+        _save_push_state_locked()
+
+
+def _send_push_notification(item: dict) -> bool:
     if not webpush or not VAPID_PUBLIC_KEY or not VAPID_PRIVATE_KEY:
         print("[push] skipped: VAPID keys or pywebpush are missing")
-        return
+        return False
     payload = json.dumps(
         {
             "title": "☕ 커피 준비 완료!",
@@ -278,6 +276,7 @@ def _send_push_notification(item: dict) -> None:
         print(
             f"[push] sent number={item['number']} subscription={item['subscription_id']}"
         )
+        return True
     except WebPushException as e:
         response = getattr(e, "response", None)
         status_code = getattr(response, "status_code", None)
@@ -285,6 +284,11 @@ def _send_push_notification(item: dict) -> None:
         if status_code in (404, 410):
             with push_lock:
                 _delete_subscription_locked(item["subscription_id"])
+            return True
+        return False
+    except Exception as e:
+        print(f"[push] send failed number={item['number']}: {type(e).__name__}: {e}")
+        return False
 
 
 _load_push_state()
@@ -417,7 +421,9 @@ def monitor_loop():
                         print(f"[monitor] {t}번 발견! SSE 모니터 제거")
 
             for notification in _collect_push_notifications(numbers):
-                _send_push_notification(notification)
+                if _send_push_notification(notification):
+                    with push_lock:
+                        _remove_push_watch_locked(notification["watch_id"])
 
         except Exception as e:
             import traceback

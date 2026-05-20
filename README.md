@@ -34,10 +34,10 @@ Web Push를 테스트하려면 HTTPS가 필요합니다. iOS에서는 Safari 공
 ### VAPID 키 생성
 
 ```bash
-python -m pywebpush --gen-vapid
+npx web-push generate-vapid-keys
 ```
 
-출력된 public/private key를 각각 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`로 설정하세요.
+출력된 값에서 `Public Key`는 `VAPID_PUBLIC_KEY`, `Private Key`는 `VAPID_PRIVATE_KEY`로 설정하세요. `Private Key:` 같은 라벨, 따옴표, 공백은 넣지 말고 키 문자열만 붙여넣어야 합니다.
 
 ## 웹 배포 (Render)
 
@@ -56,16 +56,16 @@ python -m pywebpush --gen-vapid
 
 ### 3. 환경 변수 설정 (선택)
 
-| 변수명                   | 설명                                   | 기본값                     |
-| ------------------------ | -------------------------------------- | -------------------------- |
-| `OCR_API_KEY`            | OCR.space API 키                       | `helloworld` (데모)        |
-| `POLL_INTERVAL`          | 대기 번호가 있을 때 확인 주기 (초)     | `8`                        |
-| `IDLE_INTERVAL`          | 대기 번호가 없을 때 확인 주기 (초)     | `60`                       |
-| `VAPID_PUBLIC_KEY`       | Web Push 공개 키                       | 필수                       |
-| `VAPID_PRIVATE_KEY`      | Web Push 개인 키                       | 필수                       |
-| `VAPID_CLAIM_SUB`        | VAPID 연락처 claim (`mailto:` 권장)    | `mailto:admin@example.com` |
-| `PUSH_STATE_FILE`        | Push subscription/watch JSON 저장 경로 | `push_state.json`          |
-| `PUSH_WATCH_TTL_SECONDS` | 서버 감시 자동 만료 시간               | `14400`                    |
+| 변수명                   | 설명                                   | 기본값                         |
+| ------------------------ | -------------------------------------- | ------------------------------ |
+| `OCR_API_KEY`            | OCR.space API 키                       | `helloworld` (데모)            |
+| `POLL_INTERVAL`          | 대기 번호가 있을 때 확인 주기 (초)     | `8`                            |
+| `IDLE_INTERVAL`          | 대기 번호가 없을 때 확인 주기 (초)     | `60`                           |
+| `VAPID_PUBLIC_KEY`       | Web Push 공개 키                       | 필수                           |
+| `VAPID_PRIVATE_KEY`      | Web Push 개인 키                       | 필수                           |
+| `VAPID_CLAIM_SUB`        | VAPID 연락처 claim (`mailto:` 권장)    | `mailto:admin@example.com`     |
+| `PUSH_STATE_FILE`        | Push subscription/watch JSON 저장 경로 | `/tmp/cafe701-push-state.json` |
+| `PUSH_WATCH_TTL_SECONDS` | 서버 감시 자동 만료 시간               | `14400`                        |
 
 > OCR.space 무료 계정 키 발급: [ocr.space/ocrapi](https://ocr.space/ocrapi) (월 25,000회)
 
