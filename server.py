@@ -1,30 +1,33 @@
-import sys
-import io
-import os
-import time
-import queue
 import base64
-import json
-import tempfile
 import hashlib
+import io
+import json
+import os
+import queue
+import sys
+import tempfile
+import threading
+import time
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# 로그 즉시 출력 (버퍼링 비활성화)
-sys.stdout.reconfigure(line_buffering=True)
-import threading
 import requests
-from flask import (
+from flask import (  # type: ignore[reportMissingImports]
     Flask,
-    render_template,
     Response,
     jsonify,
-    stream_with_context,
+    render_template,
     request,
     send_from_directory,
+    stream_with_context,
 )
 from PIL import Image
+
+# 로그 즉시 출력 (버퍼링 비활성화)
+_stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
+if callable(_stdout_reconfigure):
+    _stdout_reconfigure(line_buffering=True)
 
 try:
     from pywebpush import WebPushException, webpush
@@ -460,13 +463,20 @@ def monitor_loop():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template(
+        "index.html",
+        open_hour=OPEN_HOUR,
+        close_hour=CLOSE_HOUR,
+        poll_interval=POLL_INTERVAL,
+        timezone="Asia/Seoul",
+    )
 
 
 @app.route("/service-worker.js")
 def service_worker():
+    static_folder = app.static_folder or "static"
     response = send_from_directory(
-        app.static_folder, "service-worker.js", mimetype="application/javascript"
+        static_folder, "service-worker.js", mimetype="application/javascript"
     )
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Service-Worker-Allowed"] = "/"
@@ -475,8 +485,9 @@ def service_worker():
 
 @app.route("/manifest.webmanifest")
 def webmanifest():
+    static_folder = app.static_folder or "static"
     return send_from_directory(
-        app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json"
+        static_folder, "manifest.webmanifest", mimetype="application/manifest+json"
     )
 
 
