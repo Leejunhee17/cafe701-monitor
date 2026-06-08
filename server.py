@@ -321,12 +321,12 @@ def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
     img = Image.open(io.BytesIO(img_bytes))
     w, h = img.size
 
-    # 주문 번호 패널만 크롭 (우측 안내/시간 패널 제외) - 누락 방지를 위해 마진 확대
+    # 주문 번호 패널만 크롭 (하단 운영 시간 및 자막 배제를 위해 조정)
     left, top, right, bottom = (
-        int(w * 0.24),
-        int(h * 0.08),
-        int(w * 0.60),
-        int(h * 0.70),
+        int(w * 0.28),
+        int(h * 0.10),
+        int(w * 0.55),
+        int(h * 0.62),
     )
     cropped = img.crop((left, top, right, bottom))
 
