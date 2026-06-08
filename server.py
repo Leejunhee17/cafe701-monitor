@@ -573,6 +573,15 @@ def delete_push_watch(watch_id: str):
     return jsonify({"removed": removed})
 
 
+@app.route("/api/push/watches/<watch_id>", methods=["GET"])
+def get_push_watch(watch_id: str):
+    with push_lock:
+        watch = push_state.setdefault("watches", {}).get(watch_id)
+    if watch:
+        return jsonify({"active": True, "number": watch.get("number")})
+    return jsonify({"active": False}), 404
+
+
 @app.route("/api/watch/<number>")
 def watch(number: str):
     """SSE endpoint: 번호 감지 시 알림."""

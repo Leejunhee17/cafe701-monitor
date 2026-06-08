@@ -1986,35 +1986,60 @@
       });
 
       // localStorage에서 대기 중인 번호 복원 (페이지 새로고침 대비)
-      const savedNumber = localStorage.getItem("cafe701_watching");
-      if (savedNumber && /^[0-9]{1,4}$/.test(savedNumber)) {
-        const input = document.getElementById("numberInput");
-        input.value = savedNumber;
-        if (pushWatchId && checkOperatingHours()) {
-          watchingNumber = savedNumber;
-          document.body.classList.add("is-watching");
-          input.disabled = true;
-          document.getElementById("startBtn").style.display = "none";
-          document.getElementById("stopBtn").style.display = "block";
-          serverPushActiveForCurrentWatch = false;
-          restoredPushWatch = true;
-          setPushUI(
-            "ready",
-            "복원됨",
-            "이전 감시를 복원했습니다. 서버 재시작 후에는 전면 알림으로 보완합니다.",
-          );
-          setStatus(
-            "watching",
-            "👀",
-            `${savedNumber}번 대기 중...`,
-            "서버가 계속 확인 중입니다",
-          );
-          connectSSE(savedNumber);
+      async function restoreWatch() {
+        const savedNumber = localStorage.getItem("cafe701_watching");
+        if (savedNumber && /^[0-9]{1,4}$/.test(savedNumber)) {
+          const input = document.getElementById("numberInput");
+          input.value = savedNumber;
+          if (pushWatchId && checkOperatingHours()) {
+            try {
+              const res = await fetch(`/api/push/watches/${pushWatchId}`);
+              if (!res.ok) {
+                clearSavedWatch();
+                if (input.value === savedNumber) {
+                  input.value = "";
+                }
+                refreshPushStatus();
+                return;
+              }
+              const watchData = await res.json();
+              if (!watchData.active) {
+                clearSavedWatch();
+                if (input.value === savedNumber) {
+                  input.value = "";
+                }
+                refreshPushStatus();
+                return;
+              }
+            } catch (e) {
+              console.log("watch validation failed, fallback to restore", e);
+            }
+            watchingNumber = savedNumber;
+            document.body.classList.add("is-watching");
+            input.disabled = true;
+            document.getElementById("startBtn").style.display = "none";
+            document.getElementById("stopBtn").style.display = "block";
+            serverPushActiveForCurrentWatch = false;
+            restoredPushWatch = true;
+            setPushUI(
+              "ready",
+              "복원됨",
+              "이전 감시를 복원했습니다. 서버 재시작 후에는 전면 알림으로 보완합니다.",
+            );
+            setStatus(
+              "watching",
+              "👀",
+              `${savedNumber}번 대기 중...`,
+              "서버가 계속 확인 중입니다",
+            );
+            connectSSE(savedNumber);
+          }
+        } else if (savedNumber) {
+          localStorage.removeItem("cafe701_watching");
+          localStorage.removeItem("cafe701_push_watch_id");
         }
-      } else if (savedNumber) {
-        localStorage.removeItem("cafe701_watching");
-        localStorage.removeItem("cafe701_push_watch_id");
       }
+      restoreWatch();
 
       // 운영시간 체크 (서버 설정 기준)
       function getCafeHour() {
