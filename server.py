@@ -321,12 +321,12 @@ def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
     img = Image.open(io.BytesIO(img_bytes))
     w, h = img.size
 
-    # 주문 번호 패널만 크롭 (우측 안내/시간 패널 제외)
+    # 주문 번호 패널만 크롭 (우측 안내/시간 패널 제외) - 누락 방지를 위해 마진 확대
     left, top, right, bottom = (
-        int(w * 0.28),
-        int(h * 0.10),
-        int(w * 0.57),
-        int(h * 0.68),
+        int(w * 0.24),
+        int(h * 0.08),
+        int(w * 0.60),
+        int(h * 0.70),
     )
     cropped = img.crop((left, top, right, bottom))
 
@@ -340,11 +340,17 @@ def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
         print(f"[ocr] 이미지 변화 없음, 캐시 반환: {_ocr_cache['numbers']}")
         return _ocr_cache["numbers"]
 
+    # 흑백(Grayscale) 변환 및 대비(Contrast) 3배 향상으로 OCR 인식 성능 비약적 개선
+    from PIL import ImageEnhance
+    processed = cropped.convert("L")
+    enhancer = ImageEnhance.Contrast(processed)
+    processed = enhancer.enhance(3.0)
+
     # 500px로 리사이즈 후 OCR
-    ratio = 500 / cropped.width
-    cropped = cropped.resize((500, int(cropped.height * ratio)), Image.LANCZOS)
+    ratio = 500 / processed.width
+    processed = processed.resize((500, int(processed.height * ratio)), Image.LANCZOS)
     buf = io.BytesIO()
-    cropped.save(buf, format="JPEG", quality=80)
+    processed.save(buf, format="JPEG", quality=80)
     img_b64 = base64.b64encode(buf.getvalue()).decode()
 
     resp = requests.post(
@@ -354,7 +360,8 @@ def extract_numbers(img_bytes: bytes, force: bool = False) -> list[str]:
             "base64Image": "data:image/jpeg;base64," + img_b64,
             "language": "eng",
             "scale": True,
-            "OCREngine": 1,
+            "OCREngine": 2,
+            "isTable": True,
         },
         timeout=15,
     )
