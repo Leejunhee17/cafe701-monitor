@@ -433,7 +433,14 @@ def _poll_once(tick: int) -> bool:
 
     img_bytes = fetch_image_bytes()
     print(f"[monitor] 이미지 수신 ({len(img_bytes)} bytes)")
-    numbers = extract_numbers(img_bytes)
+
+    # 감시 중인데 아직 감지되지 않은 번호가 있으면 캐시를 건너뛰고 매 폴마다 새로 OCR.
+    # 단일 OCR 오인식이 캐시에 고정돼 해당 번호의 노출 구간 내내 알림을 놓치는 문제를 방지한다.
+    watched = set(sse_watcher_list) | set(push_watcher_list)
+    pending = watched - set(_ocr_cache["numbers"])
+    if pending:
+        print(f"[monitor] 미감지 감시 번호 {sorted(pending)} → 강제 OCR")
+    numbers = extract_numbers(img_bytes, force=bool(pending))
 
     if sse_watcher_list:
         _broadcast_sse_numbers(numbers)
